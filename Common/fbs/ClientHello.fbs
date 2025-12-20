@@ -1,0 +1,7 @@
+namespace Network.Packets;
+
+table ClientHello {
+    some_number : int;
+}
+
+root_type ClientHello;
