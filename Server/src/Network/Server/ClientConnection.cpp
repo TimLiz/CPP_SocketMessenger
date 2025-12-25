@@ -2,17 +2,20 @@
 
 #include <iostream>
 #include <ostream>
+#include <utility>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
 #include "Network/Server/Server.h"
 
-namespace Network::Server {
-    ClientConnection::ClientConnection(int socketConnectionId, Server* server):socketConnectionId(socketConnectionId), relatedServer(server) {}
+#include "boost/format.hpp"
 
-    ClientConnection::~ClientConnection() {
-        close(socketConnectionId); // Must be closed in destructor as I use it as client identifier
+namespace Network::Server {
+    ClientConnection::ClientConnection(std::shared_ptr<Socket> socketConnectionId, Server* server) {
+        socket = std::move(socketConnectionId);
+        relatedServer = server;
+        connectionId = getNextConnectionId();
     }
 
     void ClientConnection::scheduleDataSend(std::span<std::byte> buffer) {
@@ -21,23 +24,25 @@ namespace Network::Server {
         sendBuffers.emplace_back(buffer.begin(), buffer.end());
 
         if (shouldUpdateListener) {
-            static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLOUT};
-            events.data.ptr = this;
+            static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLOUT};
+            events.data.u32 = this->connectionId;
 
-            relatedServer->setEpollEventForConnection(this->socketConnectionId, events);
+            relatedServer->epoll.modifyInPool(this->socket->getFd(), events);
         }
     }
 
-    void ClientConnection::onDataAvailable() {
-        if (isDisconnected) return;
-
+    /**
+     *
+     * @return False if connection was closed
+     */
+    bool ClientConnection::onDataAvailable() {
         while (true) {
-            int bufferCapacity = sizeof(buffer) - currentBufferOffset;
-            int bytesReceived = recv(socketConnectionId, buffer + currentBufferOffset, bufferCapacity, MSG_DONTWAIT);
+            size_t bufferCapacity = sizeof(buffer) - currentBufferOffset;
+            int bytesReceived = this->socket->recv({buffer.data() + currentBufferOffset, bufferCapacity});
 
             if (bytesReceived == 0) {
                 disconnect();
-                return;
+                return false;
             }
 
             if (bytesReceived == -1) {
@@ -47,35 +52,24 @@ namespace Network::Server {
 
                 std::cerr << "recv() failed: " << strerror(errno) << std::endl;
                 disconnect();
-                return;
+                return false;
             }
 
-            // currentBufferOffset += bytesReceived;
-            //
-            // if (currentBufferOffset == 4) {
-            //
-            // }
+            currentBufferOffset += bytesReceived;
         }
 
-        {
-            std::string str = "HTTP/1.1 200 OK\nContent-Length: 12\r\n\r\nHello there!";
-
-            std::span byteSpan(reinterpret_cast<std::byte*>(str.data()), str.size());
-            this->scheduleDataSend(byteSpan);
-        }
+        return true;
     }
 
     void ClientConnection::onDataSendingAvailable() {
-        if (isDisconnected) return;
-
         while (true) {
             constexpr static int maximumBytesPerOperation = 4194304; // 4MB
 
             if (sendBuffers.empty()) {
-                static epoll_event events = {EPOLLIN | EPOLLRDHUP};
-                events.data.ptr = this;
+                static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
+                events.data.u32 = this->connectionId;
 
-                relatedServer->setEpollEventForConnection(this->socketConnectionId, events);
+                relatedServer->epoll.modifyInPool(this->socket->getFd(), events);
                 return;
             }
 
@@ -91,7 +85,7 @@ namespace Network::Server {
                 operationBytesLeft -= bufferBytesToSend;
             }
 
-            int bytesSent = writev(socketConnectionId, iovecs.data(), iovecs.size());
+            int bytesSent = this->socket->send(iovecs);
             if (bytesSent == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     return;
@@ -121,12 +115,6 @@ namespace Network::Server {
     }
 
     void ClientConnection::disconnect() {
-        if (isDisconnected) return;
-
-        static epoll_event emptyEvent = {};
-        this->relatedServer->setEpollEventForConnection(this->socketConnectionId, emptyEvent);
-
-        isDisconnected = true;
-        this->relatedServer->clientConnectionsToDisconnect.insert(socketConnectionId);
+        isConnected = false;
     }
 }

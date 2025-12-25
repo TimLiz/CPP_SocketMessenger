@@ -16,110 +16,93 @@
 namespace Network::Server {
     void Server::clientsProcessingThreadEntryPoint() {
         static constexpr int EPOLL_EVENT_BUFFER_SIZE = 128;
-        epoll_event epollEventsBuffer[EPOLL_EVENT_BUFFER_SIZE];
+
+
+        std::array<epoll_event, EPOLL_EVENT_BUFFER_SIZE> epollEventsBuffer{};
         while (true) {
-            const int eventsCount = epoll_wait(clientConnectionsEpoll, epollEventsBuffer, EPOLL_EVENT_BUFFER_SIZE, -1);
+            const int eventsCount = epoll.epoll_wait(epollEventsBuffer);
             if (eventsCount == -1) {
-                if (errno == EINTR) {
-                    continue;
-                }
                 throw std::system_error(errno, std::system_category(), "epoll_wait");
             }
 
             for (int i = 0; i < eventsCount; i++) {
                 auto event = epollEventsBuffer[i];
-                auto clientConnection = static_cast<ClientConnection*>(event.data.ptr);
 
-                if (event.events & EPOLLRDHUP) {
-                    clientConnection->disconnect();
+                std::shared_ptr<ClientConnection> clientConnection; {
+                    auto it = clients.find(event.data.u32);
+                    if (it == clients.end()) continue;
+
+                    clientConnection = it->second;
+                }
+
+                if (event.events & EPOLLRDHUP or event.events & EPOLLHUP) {
+                    processClientDisconnect(clientConnection);
                     break;
                 }
 
                 if (event.events & EPOLLIN) {
-                    clientConnection->onDataAvailable();
+                    if (!clientConnection->onDataAvailable()) {
+                        processClientDisconnect(clientConnection);
+                        break;
+                    }
                 }
 
                 if (event.events & EPOLLOUT) {
                     clientConnection->onDataSendingAvailable();
                 }
             }
-
-            for (auto toDeleteIdIt = this->clientConnectionsToDisconnect.begin(); toDeleteIdIt != this->clientConnectionsToDisconnect.end();) {
-                this->serverConnections.erase(*toDeleteIdIt);
-                toDeleteIdIt = this->clientConnectionsToDisconnect.erase(toDeleteIdIt);
-            }
         }
     }
 
-    Server::Server() {
-        clientConnectionsEpoll = epoll_create1(0);
-
-        socketId = socket(AF_INET, SOCK_STREAM, 0);
-        if (socketId < 0) {
-            throw std::runtime_error("Could not create socket");
+    void Server::processClient(std::shared_ptr<Socket> clientSocket) {
+        if (clientSocket->setNonBlocking() == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to set client non-blocking");
         }
 
-        sockaddr_in serverAddr {};
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_addr.s_addr = INADDR_ANY;
-        serverAddr.sin_port = htons(25365);
+        auto newClient = new ClientConnection(clientSocket, this);
+        clients.emplace(newClient->connectionId, newClient);
 
-        if (bind(socketId, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) < 0) {
-            throw std::runtime_error("Could not bind socket");
+        static epoll_event epollEvent_forNewConns = {
+            EPOLLIN | EPOLLRDHUP | EPOLLHUP,
+            nullptr
+        };
+
+        epollEvent_forNewConns.data.u32 = newClient->connectionId;
+        if (epoll.addIntoPool(clientSocket->getFd(), epollEvent_forNewConns) == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to add in pool");
         }
+    }
 
-        if (listen(socketId, SOMAXCONN) < 0) {
-            throw std::runtime_error("Could not listen on socket");
+    void Server::processClientDisconnect(std::shared_ptr<ClientConnection> connection) {
+        epoll.removeFromPool(connection->getFd());
+        connection->disconnect();
+
+        clients.erase(connection->connectionId);
+    }
+
+    Server::Server(): socket(SocketType::SOCK_STREAM) {
+        if (socket.bindLoopback(25365) == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to bind socket");
         }
-
-        auto thread = std::thread(&Server::clientsProcessingThreadEntryPoint, this);
-
-        while (true) {
-            const int clientConnection = accept(socketId, nullptr, nullptr);
-            if (clientConnection < 0) {
-                break;
-            }
-
-            auto newClientRaw = serverConnections.emplace(clientConnection, std::make_unique<ClientConnection>(clientConnection, this)).first->second.get();
-
-            static epoll_event events = {EPOLLIN | EPOLLRDHUP };
-            events.data.ptr = newClientRaw;
-
-            if (fcntl(clientConnection, F_SETFL, O_NONBLOCK) == -1) {
-                throw std::system_error(errno, std::system_category(), "Failed to make client connection nonblocking");
-            }
-
-            setEpollEventForConnection(clientConnection, events);
-        }
-        std::cout << "Accept failed!" << std::endl;
     }
 
     Server::~Server() {
-        if (socketId != -1) {
-            epoll_ctl(clientConnectionsEpoll, EPOLL_CTL_DEL, socketId, nullptr);
-            close(socketId);
-        }
+        // TODO: Clean up server socket
     }
 
-    void Server::setEpollEventForConnection(int connectionId, epoll_event& event) const {
-        if (event.events == 0) {
-            if (epoll_ctl(clientConnectionsEpoll, EPOLL_CTL_DEL, connectionId, nullptr) == -1) {
-                throw std::system_error(errno, std::system_category(), "epoll_ctl EPOLL_CTL_DEL failed");
-            }
-            return;
+    void Server::run() {
+        if (socket.listen() == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to listen on socket");
         }
 
-        const bool isAddFailed = epoll_ctl(clientConnectionsEpoll, EPOLL_CTL_ADD, connectionId, &event) == -1;
-
-        if (isAddFailed) {
-            if (errno == EEXIST) {
-                if (epoll_ctl(clientConnectionsEpoll, EPOLL_CTL_MOD, connectionId, &event) == -1) {
-                    throw std::system_error(errno, std::system_category(), "epoll_ctl EPOLL_CTL_MOD failed");
-                }
-                return;
+        auto thread = std::thread(&Server::clientsProcessingThreadEntryPoint, this);
+        while (true) {
+            auto acceptedConnection = socket.accept();
+            if (acceptedConnection == nullptr) {
+                throw std::system_error(errno, std::system_category(), "Failed to accept new connection");
             }
 
-            throw std::system_error(errno, std::system_category(), "epoll_ctl EPOLL_CTL_ADD failed");
+            this->processClient(acceptedConnection);
         }
     }
 }

@@ -5,21 +5,30 @@
 #include <sys/epoll.h>
 
 #include "ClientConnection.h"
+#include "../../../../Common/include/Epoll.h"
+#include "../../../../Common/include/Network/Socket.h"
 
 namespace Network::Server {
     class Server {
+        friend class ClientConnection;
+
         private:
-            int socketId = -1;
-            int clientConnectionsEpoll;
+            Socket socket;
+            Epoll::Epoll epoll{};
 
             void clientsProcessingThreadEntryPoint();
+
+            void processClient(std::shared_ptr<Socket> clientSocket);
+
+            void processClientDisconnect(std::shared_ptr<ClientConnection> connection);
+
         public:
             Server();
             ~Server();
 
-            std::unordered_map<int, std::unique_ptr<ClientConnection>> serverConnections;
-            std::unordered_set<int> clientConnectionsToDisconnect;
-            void setEpollEventForConnection(int connectionId, epoll_event &event) const;
+            void run();
+
+            std::unordered_map<int, std::shared_ptr<ClientConnection> > clients;
     };
 }
 #endif
