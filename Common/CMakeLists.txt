@@ -42,6 +42,10 @@ add_library(Common STATIC
         include/Network/Packet.h
         src/Network/PacketHeader.cpp
         include/Network/PacketHeader.h
+        src/Network/Socket.cpp
+        include/Network/Socket.h
+        src/Epoll.cpp
+        include/Epoll.h
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR})
