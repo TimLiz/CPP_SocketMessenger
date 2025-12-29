@@ -4,7 +4,7 @@
 
 namespace Network {
 struct PacketHeader {
-    Packets::PacketType packetType;
+    // Packets::PacketType packetType;
 };
 }
 #endif

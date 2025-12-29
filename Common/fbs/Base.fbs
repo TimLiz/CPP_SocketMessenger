@@ -2,16 +2,11 @@ include "ClientHello.fbs";
 
 namespace Network.Packets;
 
-enum PacketType : byte {
-    ClientHello = 0
-}
-
 union Packets {
     ClientHello
 }
 
 table Base {
-    packet_type: PacketType;
     data: Packets;
 }
 

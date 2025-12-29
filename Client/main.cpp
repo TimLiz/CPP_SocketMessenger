@@ -1,10 +1,7 @@
 #include <iostream>
-#include <sstream>
+#include "spdlog/spdlog.h"
 
-#include "flatbuffers/flatbuffers.h"
-#include "flatbuffers/flatbuffer_builder.h"
-#include "fbs/ClientHello_generated.h"
-#include "flatbuffers/minireflect.h"
 int main() {
+    // spdlog::error("Client is not implemented.");
     return 0;
 }
