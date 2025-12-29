@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <list>
 
+#include "../../../../Common/include/Network/PacketView.h"
 #include "../../../../Common/include/Network/Socket.h"
 #include "flatbuffers/buffer.h"
 #include "boost/container/static_vector.hpp"
@@ -19,17 +20,13 @@ namespace Network::Server {
 
             std::shared_ptr<Socket> socket;
             Server* relatedServer;
-
-            std::array<std::byte, 4096> buffer{};
-
-            /** The data is copied from the socket into buffer
-             *  "currentPacketBufferPtr" might be different from "&buffer" if
-             *      - Currently receiving packet size is larger than "sizeof(buffer)"
-             */
-            std::byte* currentPacketBufferPtr = buffer.data();
-            int currentBufferOffset = 0;
-
+            std::array<std::byte, 16000> buffer{};
+            int bytesInReadingBuffer = 0; // Amount of bytes in reading buffer
+            PacketView::PACKET_SIZE_TYPE currentPacketSizeExpected = 0;
+            std::vector<std::byte> packetBuffer; // Stores all chunks of current packet
             std::list<std::vector<std::byte>> sendBuffers;
+
+
         public:
             unsigned int connectionId;
 

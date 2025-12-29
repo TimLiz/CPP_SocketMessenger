@@ -1,20 +1,20 @@
 #include "../../../include/Network/Server/Server.h"
 
 #include <iostream>
-#include <optional>
-#include <stdexcept>
 #include <thread>
 #include <unistd.h>
 
 #include "sys/socket.h"
 #include "netinet/in.h"
 #include "sys/epoll.h"
-#include "sys/fcntl.h"
 
 #include "Network/Server/ClientConnection.h"
 
+#include "spdlog/spdlog.h"
+
 namespace Network::Server {
     void Server::clientsProcessingThreadEntryPoint() {
+        SPDLOG_DEBUG("Server::clientsProcessingThreadEntryPoint");
         static constexpr int EPOLL_EVENT_BUFFER_SIZE = 128;
 
 
@@ -55,6 +55,7 @@ namespace Network::Server {
     }
 
     void Server::processClient(std::shared_ptr<Socket> clientSocket) {
+        SPDLOG_DEBUG("Processing new client");
         if (clientSocket->setNonBlocking() == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to set client non-blocking");
         }
@@ -78,16 +79,20 @@ namespace Network::Server {
         connection->disconnect();
 
         clients.erase(connection->connectionId);
+        spdlog::debug("Client connection {} with sockFd {} completely disconnected", connection->connectionId, connection->getFd());
     }
 
     Server::Server(): socket(SocketType::SOCK_STREAM) {
         if (socket.bindLoopback(25365) == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to bind socket");
         }
+
+        SPDLOG_DEBUG("Server bound successfully");
     }
 
     Server::~Server() {
-        // TODO: Clean up server socket
+        SPDLOG_INFO("Server destroyed");
+        socket.close();
     }
 
     void Server::run() {
@@ -96,13 +101,20 @@ namespace Network::Server {
         }
 
         auto thread = std::thread(&Server::clientsProcessingThreadEntryPoint, this);
+
+        SPDLOG_INFO("Server started");
         while (true) {
             auto acceptedConnection = socket.accept();
             if (acceptedConnection == nullptr) {
                 throw std::system_error(errno, std::system_category(), "Failed to accept new connection");
             }
 
-            this->processClient(acceptedConnection);
+            try {
+                this->processClient(acceptedConnection);
+            } catch (const std::exception& e) {
+                SPDLOG_ERROR("Client processing failed: {}", e.what());
+                return;
+            }
         }
     }
 }

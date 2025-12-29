@@ -7,9 +7,12 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
+#include "../../../../Common/include/Network/PacketView.h"
 #include "Network/Server/Server.h"
 
 #include "boost/format.hpp"
+
+#include "spdlog/spdlog.h"
 
 namespace Network::Server {
     ClientConnection::ClientConnection(std::shared_ptr<Socket> socketConnectionId, Server* server) {
@@ -21,7 +24,12 @@ namespace Network::Server {
     void ClientConnection::scheduleDataSend(std::span<std::byte> buffer) {
         const bool shouldUpdateListener = sendBuffers.empty();
 
-        sendBuffers.emplace_back(buffer.begin(), buffer.end());
+        std::vector<std::byte> buffTmp;
+        buffTmp.reserve(buffer.size() + sizeof(PacketView::PACKET_SIZE_TYPE));
+        *reinterpret_cast<PacketView::PACKET_SIZE_TYPE*>(buffTmp.data()) = buffer.size();
+        buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), buffer.begin(), buffer.end());
+
+        sendBuffers.push_back(std::move(buffTmp));
 
         if (shouldUpdateListener) {
             static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLOUT};
@@ -37,26 +45,67 @@ namespace Network::Server {
      */
     bool ClientConnection::onDataAvailable() {
         while (true) {
-            size_t bufferCapacity = sizeof(buffer) - currentBufferOffset;
-            int bytesReceived = this->socket->recv({buffer.data() + currentBufferOffset, bufferCapacity});
-
-            if (bytesReceived == 0) {
-                disconnect();
-                return false;
-            }
+            size_t bytesToRead = sizeof(buffer) - bytesInReadingBuffer;
+            int bytesReceived = this->socket->recv({buffer.data() + bytesInReadingBuffer, bytesToRead});
 
             if (bytesReceived == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     break;
                 }
 
-                std::cerr << "recv() failed: " << strerror(errno) << std::endl;
+                SPDLOG_ERROR("ClientConnection::onDataAvailable: recv failed: {}", strerror(errno));
                 disconnect();
                 return false;
             }
+            if (bytesReceived == 0) {
+                SPDLOG_DEBUG("Received gracefull disconnect request for connection {}", connectionId);
+                disconnect();
+                return false;
+            }
+            bytesInReadingBuffer += bytesReceived;
 
-            currentBufferOffset += bytesReceived;
+            unsigned int currentReadingOffset = 0;
+            while (currentReadingOffset != bytesInReadingBuffer) {
+                if (currentPacketSizeExpected == 0) { // Then fetch current packet size
+                    if (bytesInReadingBuffer < sizeof(currentPacketSizeExpected)) break;
+                    std::memcpy(&currentPacketSizeExpected, buffer.data() + currentReadingOffset, sizeof(currentPacketSizeExpected));
+
+                    if (currentPacketSizeExpected > PacketView::MAXIMUM_PACKET_SIZE) {
+                        SPDLOG_WARN("Client connection {} sent packet with size {} bytes what is larger than maximum allowed {} bytes", connectionId, currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
+                        disconnect();
+                        return false;
+                    }
+
+                    SPDLOG_DEBUG("Received next packet size for client connection {} of {} bytes", connectionId, currentPacketSizeExpected);
+                    packetBuffer.reserve(currentPacketSizeExpected);
+                    currentReadingOffset += sizeof(currentPacketSizeExpected);
+                    continue;
+                }
+
+
+
+                // After size is obtained and buffer is reserved we can fetch packet body
+                unsigned int packetBytesLeftToRead = currentPacketSizeExpected - packetBuffer.size();
+                unsigned int bytesLeftInBuffer = bytesInReadingBuffer - currentReadingOffset;
+                unsigned int bufferBytesGoingToRead = std::min(packetBytesLeftToRead, bytesLeftInBuffer);
+
+                packetBuffer.insert(packetBuffer.end(), buffer.begin() + currentReadingOffset, buffer.begin() + currentReadingOffset + bufferBytesGoingToRead);
+                currentReadingOffset += bufferBytesGoingToRead;
+
+                if (packetBuffer.size() == currentPacketSizeExpected) {
+                    auto packetView = PacketView(packetBuffer);
+                    if (!packetView.verify()) {
+                        SPDLOG_WARN("Inbound verification for client connection {} failed.", connectionId);
+                        disconnect();
+                        return false;
+                    }
+
+                    auto parsedView = packetView.GetParsedView();
+                }
+            }
         }
+
+
 
         return true;
     }
@@ -91,7 +140,7 @@ namespace Network::Server {
                     return;
                 }
 
-                std::cerr << "write() failed: " << strerror(errno) << std::endl;
+                SPDLOG_ERROR("ClientConnection::onDataSendingAvailable: send failed: {}", strerror(errno));
                 disconnect();
                 return;
             }
@@ -115,6 +164,9 @@ namespace Network::Server {
     }
 
     void ClientConnection::disconnect() {
-        isConnected = false;
+        if (isConnected) {
+            SPDLOG_DEBUG("Client connection {} is marked as disconnected", connectionId);
+            isConnected = false;
+        }
     }
 }
