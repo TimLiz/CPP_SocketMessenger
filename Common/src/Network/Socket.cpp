@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <system_error>
 #include <unistd.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -50,8 +51,14 @@ namespace Network {
     }
 
     int Socket::connect(std::string_view host, int port) {
-        throw std::logic_error("Not implemented");
-        return -1;
+        sockaddr_in serverAddr;
+        if (inet_aton(host.data(), &serverAddr.sin_addr) == -1) {
+            throw std::system_error(errno, std::system_category(), "Failed to convert string IP to binary");
+        }
+        serverAddr.sin_port = htons(port);
+        serverAddr.sin_family = AF_INET;
+
+        return ::connect(sockFd, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
     }
 
     int Socket::send(const std::vector<iovec>& toSend) {
