@@ -79,7 +79,7 @@ namespace Network::Server {
         connection->disconnect();
 
         clients.erase(connection->connectionId);
-        spdlog::debug("Client connection {} with sockFd {} completely disconnected", connection->connectionId, connection->getFd());
+        SPDLOG_DEBUG("Client connection {} with sockFd {} completely disconnected", connection->connectionId, connection->getFd());
     }
 
     Server::Server(): socket(SocketType::SOCK_STREAM) {
