@@ -58,7 +58,7 @@ add_library(Common STATIC
         include/Epoll.h
 )
 
-target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR})
+target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)
 target_link_libraries(Common PUBLIC Boost::serialization spdlog::spdlog)
 
 
