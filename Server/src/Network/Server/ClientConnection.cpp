@@ -8,14 +8,15 @@
 #include <sys/uio.h>
 
 #include "../../../../Common/include/Network/PacketView.h"
-#include "Network/Server/Server.h"
 
 #include "boost/format.hpp"
 
 #include "spdlog/spdlog.h"
+#include "Services/ServerService.h"
 
 namespace Network::Server {
-    ClientConnection::ClientConnection(std::shared_ptr<Socket> socketConnectionId, Server* server) {
+    ClientConnection::ClientConnection(std::shared_ptr<Socket> socketConnectionId,
+                                       const std::shared_ptr<Services::ServerService>& server) {
         socket = std::move(socketConnectionId);
         relatedServer = server;
         connectionId = getNextConnectionId();
@@ -101,6 +102,7 @@ namespace Network::Server {
                     }
 
                     auto parsedView = packetView.GetParsedView();
+                    auto packetType = parsedView->packet_union_type();
                 }
             }
         }

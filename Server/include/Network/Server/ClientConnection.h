@@ -8,9 +8,11 @@
 #include "flatbuffers/buffer.h"
 #include "boost/container/static_vector.hpp"
 
-namespace Network::Server {
-    class Server;
+namespace Services {
+    class ServerService;
+}
 
+namespace Network::Server {
     class ClientConnection {
         private:
             inline static unsigned int nextConnectionId = 0;
@@ -19,7 +21,7 @@ namespace Network::Server {
 
 
             std::shared_ptr<Socket> socket;
-            Server* relatedServer;
+            std::shared_ptr<Services::ServerService> relatedServer;
             std::array<std::byte, 16000> buffer{};
             int bytesInReadingBuffer = 0; // Amount of bytes in reading buffer
             PacketView::PACKET_SIZE_TYPE currentPacketSizeExpected = 0;
@@ -30,7 +32,8 @@ namespace Network::Server {
         public:
             unsigned int connectionId;
 
-            ClientConnection(std::shared_ptr<Socket> socketConnectionId, Server* server);
+            ClientConnection(std::shared_ptr<Socket> socketConnectionId,
+                             const std::shared_ptr<Services::ServerService>& server);
 
             void scheduleDataSend(std::span<std::byte> buffer);
 

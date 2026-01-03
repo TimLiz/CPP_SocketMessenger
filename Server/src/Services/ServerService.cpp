@@ -1,19 +1,9 @@
-#include "../../../include/Network/Server/Server.h"
+#include "Services/ServerService.h"
 
-#include <iostream>
-#include <thread>
-#include <unistd.h>
+#include "Services/Services.h"
 
-#include "sys/socket.h"
-#include "netinet/in.h"
-#include "sys/epoll.h"
-
-#include "Network/Server/ClientConnection.h"
-
-#include "spdlog/spdlog.h"
-
-namespace Network::Server {
-    void Server::clientsProcessingThreadEntryPoint() {
+namespace Services {
+    void ServerService::clientsProcessingThreadEntryPoint() {
         SPDLOG_DEBUG("Server::clientsProcessingThreadEntryPoint");
         static constexpr int EPOLL_EVENT_BUFFER_SIZE = 128;
 
@@ -28,7 +18,7 @@ namespace Network::Server {
             for (int i = 0; i < eventsCount; i++) {
                 auto event = epollEventsBuffer[i];
 
-                std::shared_ptr<ClientConnection> clientConnection; {
+                std::shared_ptr<Server::ClientConnection> clientConnection; {
                     auto it = clients.find(event.data.u32);
                     if (it == clients.end()) continue;
 
@@ -54,13 +44,13 @@ namespace Network::Server {
         }
     }
 
-    void Server::processClient(std::shared_ptr<Socket> clientSocket) {
+    void ServerService::processClient(const std::shared_ptr<Socket>& clientSocket) {
         SPDLOG_DEBUG("Processing new client");
         if (clientSocket->setNonBlocking() == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to set client non-blocking");
         }
 
-        auto newClient = new ClientConnection(clientSocket, this);
+        auto newClient = new Server::ClientConnection(clientSocket, _services->getService<ServerService>());
         clients.emplace(newClient->connectionId, newClient);
 
         static epoll_event epollEvent_forNewConns = {
@@ -74,15 +64,16 @@ namespace Network::Server {
         }
     }
 
-    void Server::processClientDisconnect(std::shared_ptr<ClientConnection> connection) {
+    void ServerService::processClientDisconnect(std::shared_ptr<Server::ClientConnection> connection) {
         epoll.removeFromPool(connection->getFd());
         connection->disconnect();
 
         clients.erase(connection->connectionId);
-        SPDLOG_DEBUG("Client connection {} with sockFd {} completely disconnected", connection->connectionId, connection->getFd());
+        SPDLOG_DEBUG("Client connection {} with sockFd {} completely disconnected", connection->connectionId,
+                     connection->getFd());
     }
 
-    Server::Server(): socket(SocketType::SOCK_STREAM) {
+    ServerService::ServerService(Services* services): ServiceBase(services), socket(SocketType::SOCK_STREAM) {
         if (socket.bindLoopback(25365) == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to bind socket");
         }
@@ -90,17 +81,12 @@ namespace Network::Server {
         SPDLOG_DEBUG("Server bound successfully");
     }
 
-    Server::~Server() {
-        SPDLOG_INFO("Server destroyed");
-        socket.close();
-    }
-
-    void Server::run() {
+    void ServerService::run() {
         if (socket.listen() == -1) {
             throw std::system_error(errno, std::system_category(), "Failed to listen on socket");
         }
 
-        auto thread = std::thread(&Server::clientsProcessingThreadEntryPoint, this);
+        auto thread = std::thread(&ServerService::clientsProcessingThreadEntryPoint, this);
 
         SPDLOG_INFO("Server started");
         while (true) {
