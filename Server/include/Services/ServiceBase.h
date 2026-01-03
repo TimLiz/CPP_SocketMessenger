@@ -2,20 +2,18 @@
 #define SERVICEBASE_H
 #include "boost/noncopyable.hpp"
 #include "Network/Dispatcher.h"
+#include "spdlog/spdlog.h"
 
 namespace Services {
     struct Services;
 
     class ServiceBase : boost::noncopyable {
         protected:
-            Services& _services;
+            Services* _services;
 
+            ServiceBase(Services* services): _services(services) {}
         public:
-            ServiceBase::ServiceBase(Services& services): _services(services) {}
-
-            virtual ~ServiceBase() = 0;
-
-            virtual void networkInit(Network::Dispatcher& dispatcher) {};
+            virtual ~ServiceBase() = default;
     };
 }
 

@@ -7,7 +7,7 @@ union Packets {
 }
 
 table Base {
-    data: Packets;
+    packet_union: Packets;
 }
 
 root_type Base;
