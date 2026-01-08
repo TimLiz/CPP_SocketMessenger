@@ -21,7 +21,7 @@ class PacketView {
         bool verify();
 
 
-        std::unique_ptr<const Packets::Base> GetParsedView();
+        const Packets::Base* GetParsedView();
         std::span<const std::byte> getBufferView();
 };
 }
