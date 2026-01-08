@@ -5,12 +5,10 @@ set(CMAKE_CXX_STANDARD 23)
 add_executable(Server ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
         src/Network/Server/ClientConnection.cpp
         include/Network/Server/ClientConnection.h
-        src/Network/Dispatcher.cpp
-        include/Network/Dispatcher.h
         include/Services/Services.h
         src/Services/ServerService.cpp
         include/Services/ServerService.h
-        include/Services/ServiceBase.h
+        ../Common/include/Services/ServiceBase.h
         src/Services/Services.cpp
 )
 target_include_directories(Server PRIVATE include)
