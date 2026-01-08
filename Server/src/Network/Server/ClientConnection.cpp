@@ -67,22 +67,28 @@ namespace Network::Server {
 
             unsigned int currentReadingOffset = 0;
             while (currentReadingOffset != bytesInReadingBuffer) {
-                if (currentPacketSizeExpected == 0) { // Then fetch current packet size
+                if (currentPacketSizeExpected == 0) {
+                    // Then fetch current packet size
                     if (bytesInReadingBuffer < sizeof(currentPacketSizeExpected)) break;
-                    std::memcpy(&currentPacketSizeExpected, buffer.data() + currentReadingOffset, sizeof(currentPacketSizeExpected));
+                    std::memcpy(&currentPacketSizeExpected, buffer.data() + currentReadingOffset,
+                                sizeof(currentPacketSizeExpected));
 
                     if (currentPacketSizeExpected > PacketView::MAXIMUM_PACKET_SIZE) {
-                        SPDLOG_WARN("Client connection {} sent packet with size {} bytes what is larger than maximum allowed {} bytes", connectionId, currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
+                        SPDLOG_WARN(
+                            "Client connection {} sent packet with size {} bytes what is larger than maximum allowed {} bytes",
+                            connectionId, currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
                         disconnect();
                         return false;
                     }
 
-                    SPDLOG_DEBUG("Received next packet size for client connection {} of {} bytes", connectionId, currentPacketSizeExpected);
+                    SPDLOG_DEBUG("Received next packet size for client connection {} of {} bytes", connectionId,
+                                 currentPacketSizeExpected);
                     packetBuffer.reserve(currentPacketSizeExpected);
+                    packetBuffer.resize(0);
+
                     currentReadingOffset += sizeof(currentPacketSizeExpected);
                     continue;
                 }
-
 
 
                 // After size is obtained and buffer is reserved we can fetch packet body
@@ -90,7 +96,8 @@ namespace Network::Server {
                 unsigned int bytesLeftInBuffer = bytesInReadingBuffer - currentReadingOffset;
                 unsigned int bufferBytesGoingToRead = std::min(packetBytesLeftToRead, bytesLeftInBuffer);
 
-                packetBuffer.insert(packetBuffer.end(), buffer.begin() + currentReadingOffset, buffer.begin() + currentReadingOffset + bufferBytesGoingToRead);
+                packetBuffer.insert(packetBuffer.end(), buffer.begin() + currentReadingOffset,
+                                    buffer.begin() + currentReadingOffset + bufferBytesGoingToRead);
                 currentReadingOffset += bufferBytesGoingToRead;
 
                 if (packetBuffer.size() == currentPacketSizeExpected) {
@@ -103,10 +110,12 @@ namespace Network::Server {
 
                     auto parsedView = packetView.GetParsedView();
                     auto packetType = parsedView->packet_union_type();
+                    SPDLOG_WARN("Received packet with type {} from client", (int) packetType);
+
+                    currentPacketSizeExpected = 0; // So, next iteration we fetch new packet
                 }
             }
         }
-
 
 
         return true;
@@ -126,7 +135,7 @@ namespace Network::Server {
 
             std::vector<iovec> iovecs;
             int operationBytesLeft = maximumBytesPerOperation;
-            for (auto& currentBuffer : sendBuffers) {
+            for (auto& currentBuffer: sendBuffers) {
                 if (operationBytesLeft == 0) {
                     break;
                 }
