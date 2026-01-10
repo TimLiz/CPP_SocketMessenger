@@ -2,7 +2,7 @@
 #include "fbs/Base_generated.h"
 
 namespace Network {
-    PacketView::PacketView(const std::span<std::byte>& dataView): buffer(dataView) {}
+    PacketView::PacketView(const std::span<std::byte>& dataView) : buffer(dataView) {}
 
     const Packets::Base* PacketView::GetParsedView() {
         if (!verified) {
@@ -11,14 +11,12 @@ namespace Network {
         return Packets::GetBase(this->buffer.data());
     }
 
-    std::span<const std::byte> PacketView::getBufferView() {
-        return this->buffer;
-    }
+    std::span<const std::byte> PacketView::getBufferView() { return this->buffer; }
 
     bool PacketView::verify() {
-        auto verifier = flatbuffers::Verifier(reinterpret_cast<unsigned char*>(this->buffer.data()),
-                                              this->buffer.size());
+        auto verifier =
+            flatbuffers::Verifier(reinterpret_cast<unsigned char*>(this->buffer.data()), this->buffer.size());
         verified = Packets::VerifyBaseBuffer(verifier);
         return verified;
     }
-}
+} // namespace Network

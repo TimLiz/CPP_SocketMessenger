@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 23)
 set(SPDLOG_VERSION "v1.16.0")
 
 
-
 find_package(Boost REQUIRED COMPONENTS serialization)
 set(LIBS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libs/include)
 
@@ -27,7 +26,7 @@ file(
         *.fbs
 )
 
-foreach(fbs ${fbsFiles})
+foreach (fbs ${fbsFiles})
     get_filename_component(name ${fbs} NAME_WE)
 
     set(out ${FLATBUFFERS_GENERATED_DIR}/${name}_generated.h)
@@ -40,7 +39,7 @@ foreach(fbs ${fbsFiles})
     )
 
     list(APPEND GENERATED_FBS_HEADERS ${out})
-endforeach()
+endforeach ()
 
 add_library(Common STATIC
         ${GENERATED_FBS_HEADERS}

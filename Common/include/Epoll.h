@@ -4,22 +4,22 @@
 #include <sys/epoll.h>
 
 namespace Epoll {
-    class Epoll {
-        private:
-            int epollFd;
+class Epoll {
+    private:
+        int epollFd;
 
-        public:
-            Epoll();
+    public:
+        Epoll();
 
-            Epoll(Epoll&) = delete;
+        Epoll(Epoll&) = delete;
 
-            int removeFromPool(int fd);
+        int removeFromPool(int fd);
 
-            int addIntoPool(int fd, epoll_event& event);
+        int addIntoPool(int fd, epoll_event& event);
 
-            int modifyInPool(int fd, epoll_event& event);
+        int modifyInPool(int fd, epoll_event& event);
 
-            int epoll_wait(std::span<epoll_event> buffer);
-    };
-}
+        int epoll_wait(std::span<epoll_event> buffer);
+};
+} // namespace Epoll
 #endif

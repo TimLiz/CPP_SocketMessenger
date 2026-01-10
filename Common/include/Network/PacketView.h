@@ -11,6 +11,7 @@ class PacketView {
     private:
         const std::span<std::byte> buffer;
         bool verified = false;
+
     public:
         using PACKET_SIZE_TYPE = unsigned int;
 
@@ -20,9 +21,8 @@ class PacketView {
 
         bool verify();
 
-
         const Packets::Base* GetParsedView();
         std::span<const std::byte> getBufferView();
 };
-}
+} // namespace Network
 #endif

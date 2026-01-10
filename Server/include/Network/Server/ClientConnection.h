@@ -3,10 +3,9 @@
 #include <cstddef>
 #include <list>
 
-#include "../../../../Common/include/Network/PacketView.h"
-#include "../../../../Common/include/Network/Socket.h"
-#include "flatbuffers/buffer.h"
-#include "boost/container/static_vector.hpp"
+#include "Network/PacketView.h"
+#include "Network/Socket.h"
+#include "Services/ServiceProvider.h"
 
 namespace Services {
     class ServerService;
@@ -19,21 +18,18 @@ namespace Network::Server {
 
             static unsigned int getNextConnectionId() { return nextConnectionId++; }
 
-
+            Services::ServiceProvider& service_provider;
             std::shared_ptr<Socket> socket;
-            std::shared_ptr<Services::ServerService> relatedServer;
             std::array<std::byte, 16000> buffer{};
             int bytesInReadingBuffer = 0; // Amount of bytes in reading buffer
             PacketView::PACKET_SIZE_TYPE currentPacketSizeExpected = 0;
             std::vector<std::byte> packetBuffer; // Stores all chunks of current packet
             std::list<std::vector<std::byte>> sendBuffers;
 
-
         public:
             unsigned int connectionId;
 
-            ClientConnection(std::shared_ptr<Socket> socketConnectionId,
-                             const std::shared_ptr<Services::ServerService>& server);
+            ClientConnection(Services::ServiceProvider& service_provider, std::shared_ptr<Socket> socketConnectionId);
 
             void scheduleDataSend(std::span<std::byte> buffer);
 
@@ -46,5 +42,5 @@ namespace Network::Server {
 
             bool isConnected = true;
     };
-}
+} // namespace Network::Server
 #endif

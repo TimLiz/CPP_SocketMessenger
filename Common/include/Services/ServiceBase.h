@@ -1,18 +1,18 @@
 #ifndef SERVICEBASE_H
 #define SERVICEBASE_H
+#include "Services/ServiceProvider.h"
 #include "boost/noncopyable.hpp"
 
 namespace Services {
-    struct Services;
+class ServiceBase : public boost::noncopyable {
+    protected:
+        ServiceProvider& _services;
 
-    class ServiceBase : boost::noncopyable {
-        protected:
-            Services* _services;
+        ServiceBase(ServiceProvider& serviceProvider) : _services(serviceProvider) {}
 
-            ServiceBase(Services* services): _services(services) {}
-        public:
-            virtual ~ServiceBase() = default;
-    };
-}
+    public:
+        virtual ~ServiceBase() = default;
+};
+} // namespace Services
 
 #endif

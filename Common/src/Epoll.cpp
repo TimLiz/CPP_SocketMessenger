@@ -1,7 +1,7 @@
 #include "../include/Epoll.h"
 
-#include <system_error>
 #include <sys/epoll.h>
+#include <system_error>
 #include <vector>
 
 Epoll::Epoll::Epoll() {
@@ -11,9 +11,7 @@ Epoll::Epoll::Epoll() {
     }
 }
 
-int Epoll::Epoll::removeFromPool(const int fd) {
-    return epoll_ctl(epollFd, EPOLL_CTL_DEL, fd, nullptr);
-}
+int Epoll::Epoll::removeFromPool(const int fd) { return epoll_ctl(epollFd, EPOLL_CTL_DEL, fd, nullptr); }
 
 int Epoll::Epoll::addIntoPool(const int fd, epoll_event& event) {
     return epoll_ctl(epollFd, EPOLL_CTL_ADD, fd, &event);
@@ -26,7 +24,8 @@ int Epoll::Epoll::modifyInPool(const int fd, epoll_event& event) {
 int Epoll::Epoll::epoll_wait(std::span<epoll_event> buffer) {
     while (true) {
         const int eventsCount = ::epoll_wait(epollFd, buffer.data(), buffer.size(), -1);
-        if (eventsCount == -1 and errno == EINTR) continue;
+        if (eventsCount == -1 and errno == EINTR)
+            continue;
 
         return eventsCount;
     }
