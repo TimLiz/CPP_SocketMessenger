@@ -1,24 +1,21 @@
-#include "../../../include/Network/Server/ClientConnection.h"
+#include "Network/Server/ClientConnection.h"
 
-#include <iostream>
-#include <ostream>
-#include <utility>
 #include <sys/epoll.h>
 #include <sys/socket.h>
-#include <sys/uio.h>
 
-#include "../../../../Common/include/Network/PacketView.h"
+#include <iostream>
+#include <utility>
 
-#include "boost/format.hpp"
-
-#include "spdlog/spdlog.h"
+#include "Network/PacketView.h"
 #include "Services/ServerService.h"
+#include "boost/format.hpp"
+#include "spdlog/spdlog.h"
 
 namespace Network::Server {
-    ClientConnection::ClientConnection(std::shared_ptr<Socket> socketConnectionId,
-                                       const std::shared_ptr<Services::ServerService>& server) {
+    ClientConnection::ClientConnection(Services::ServiceProvider& service_provider,
+                                       std::shared_ptr<Socket> socketConnectionId)
+        : service_provider(service_provider) {
         socket = std::move(socketConnectionId);
-        relatedServer = server;
         connectionId = getNextConnectionId();
     }
 
@@ -36,7 +33,7 @@ namespace Network::Server {
             static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLOUT};
             events.data.u32 = this->connectionId;
 
-            relatedServer->epoll.modifyInPool(this->socket->getFd(), events);
+            service_provider.getService<Services::ServerService>().epoll.modifyInPool(this->socket->getFd(), events);
         }
     }
 
@@ -69,20 +66,23 @@ namespace Network::Server {
             while (currentReadingOffset != bytesInReadingBuffer) {
                 if (currentPacketSizeExpected == 0) {
                     // Then fetch current packet size
-                    if (bytesInReadingBuffer < sizeof(currentPacketSizeExpected)) break;
+                    if (bytesInReadingBuffer < sizeof(currentPacketSizeExpected))
+                        break;
                     std::memcpy(&currentPacketSizeExpected, buffer.data() + currentReadingOffset,
                                 sizeof(currentPacketSizeExpected));
 
                     if (currentPacketSizeExpected > PacketView::MAXIMUM_PACKET_SIZE) {
-                        SPDLOG_WARN(
-                            "Client connection {} sent packet with size {} bytes what is larger than maximum allowed {} bytes",
-                            connectionId, currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
+                        SPDLOG_WARN("Client connection {} sent packet with size {} "
+                                    "bytes what is "
+                                    "larger than maximum allowed {} bytes",
+                                    connectionId, currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
                         disconnect();
                         return false;
                     }
 
-                    SPDLOG_DEBUG("Received next packet size for client connection {} of {} bytes", connectionId,
-                                 currentPacketSizeExpected);
+                    SPDLOG_DEBUG("Received next packet size for client connection "
+                                 "{} of {} bytes",
+                                 connectionId, currentPacketSizeExpected);
                     packetBuffer.reserve(currentPacketSizeExpected);
                     packetBuffer.resize(0);
 
@@ -90,8 +90,8 @@ namespace Network::Server {
                     continue;
                 }
 
-
-                // After size is obtained and buffer is reserved we can fetch packet body
+                // After size is obtained and buffer is reserved we can fetch packet
+                // body
                 unsigned int packetBytesLeftToRead = currentPacketSizeExpected - packetBuffer.size();
                 unsigned int bytesLeftInBuffer = bytesInReadingBuffer - currentReadingOffset;
                 unsigned int bufferBytesGoingToRead = std::min(packetBytesLeftToRead, bytesLeftInBuffer);
@@ -110,13 +110,12 @@ namespace Network::Server {
 
                     auto parsedView = packetView.GetParsedView();
                     auto packetType = parsedView->packet_union_type();
-                    SPDLOG_WARN("Received packet with type {} from client", (int) packetType);
+                    SPDLOG_WARN("Received packet with type {} from client", (int)packetType);
 
                     currentPacketSizeExpected = 0; // So, next iteration we fetch new packet
                 }
             }
         }
-
 
         return true;
     }
@@ -129,13 +128,14 @@ namespace Network::Server {
                 static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
                 events.data.u32 = this->connectionId;
 
-                relatedServer->epoll.modifyInPool(this->socket->getFd(), events);
+                service_provider.getService<Services::ServerService>().epoll.modifyInPool(this->socket->getFd(),
+                                                                                          events);
                 return;
             }
 
             std::vector<iovec> iovecs;
             int operationBytesLeft = maximumBytesPerOperation;
-            for (auto& currentBuffer: sendBuffers) {
+            for (auto& currentBuffer : sendBuffers) {
                 if (operationBytesLeft == 0) {
                     break;
                 }
@@ -180,4 +180,4 @@ namespace Network::Server {
             isConnected = false;
         }
     }
-}
+} // namespace Network::Server

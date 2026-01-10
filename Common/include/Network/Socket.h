@@ -3,51 +3,45 @@
 #include <memory>
 #include <span>
 #include <string_view>
-#include <vector>
 #include <sys/socket.h>
+#include <vector>
 
 namespace Network {
-    enum SocketType {
-        SOCK_STREAM = SOCK_STREAM,
-        SOCK_DGRAM = SOCK_DGRAM
-    };
+enum SocketType { SOCK_STREAM = SOCK_STREAM, SOCK_DGRAM = SOCK_DGRAM };
 
-    class Socket {
-        private:
-            int sockFd = -1;
+class Socket {
+    private:
+        int sockFd = -1;
 
-            Socket(const int sockFd) : sockFd(sockFd) {
-            };
+        Socket(const int sockFd) : sockFd(sockFd) {};
 
-        protected:
+    protected:
+    public:
+        Socket(SocketType type);
 
-        public:
-            Socket(SocketType type);
+        Socket(Socket& oth) = delete;
 
-            Socket(Socket& oth) = delete;
+        Socket(Socket&& oth) : sockFd(std::exchange(this->sockFd, oth.sockFd)) {}
 
-            Socket(Socket&& oth): sockFd(std::exchange(this->sockFd, oth.sockFd)) {
-            }
+        int bindLoopback(int port);
 
-            int bindLoopback(int port);
+        virtual ~Socket();
 
-            virtual ~Socket();
+        int listen();
 
-            int listen();
+        std::shared_ptr<Socket> accept();
 
-            std::shared_ptr<Socket> accept();
+        int setNonBlocking();
 
-            int setNonBlocking();
+        int connect(std::string_view host, int port);
 
-            int connect(std::string_view host, int port);
+        int send(const std::vector<iovec>& toSend);
 
-            int send(const std::vector<iovec>& toSend);
+        int recv(std::span<std::byte> buffer);
 
-            int recv(std::span<std::byte> buffer);
+        int close();
 
-            int close();
-
-            int getFd() const noexcept { return sockFd; }
-    };
-}
+        int getFd() const noexcept { return sockFd; }
+};
+} // namespace Network
 #endif

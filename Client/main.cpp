@@ -8,8 +8,6 @@
 int main() {
     spdlog::set_level(static_cast<spdlog::level::level_enum>(SPDLOG_ACTIVE_LEVEL)); // Is being set by CMAKE
 
-
-
     Network::Socket clientSocket(Network::SocketType::SOCK_STREAM);
     if (clientSocket.connect("127.0.0.1", 25365) == -1) {
         spdlog::critical("Failed to connect to server");
@@ -18,7 +16,8 @@ int main() {
 
     flatbuffers::FlatBufferBuilder builder;
     auto clientHelloPacket = Network::Packets::CreateClientHello(builder, 142);
-    auto basePacket = Network::Packets::CreateBase(builder, Network::Packets::Packets_ClientHello, clientHelloPacket.Union());
+    auto basePacket =
+        Network::Packets::CreateBase(builder, Network::Packets::Packets_ClientHello, clientHelloPacket.Union());
     builder.Finish(basePacket);
 
     std::vector<std::byte> sendBuffer;

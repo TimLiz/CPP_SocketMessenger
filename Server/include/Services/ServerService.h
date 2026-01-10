@@ -1,16 +1,16 @@
 #ifndef SERVERSERVICE_H
 #define SERVERSERVICE_H
+#include "Epoll.h"
+#include "Network/Server/ClientConnection.h"
+#include "Network/Socket.h"
 #include "Services/ServiceBase.h"
 #include "spdlog/spdlog.h"
-#include "Network/Socket.h"
-#include "Network/Server/ClientConnection.h"
-#include "Epoll.h"
 
 using namespace Network;
 
 namespace Services {
     class ServerService : public ServiceBase {
-        friend class Server::ClientConnection;
+            friend class Server::ClientConnection;
 
         private:
             Socket socket;
@@ -23,12 +23,11 @@ namespace Services {
             void processClientDisconnect(std::shared_ptr<Server::ClientConnection> connection);
 
         public:
-            ServerService(Services* services);
+            ServerService(ServiceProvider& serviceProvider);
 
             void run();
 
-
             std::unordered_map<int, std::shared_ptr<Server::ClientConnection>> clients;
     };
-}
+} // namespace Services
 #endif

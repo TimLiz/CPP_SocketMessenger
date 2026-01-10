@@ -1,5 +1,3 @@
 #include "../../include/Network/PacketHeader.h"
 
-namespace Network {
-
-}
+namespace Network {}
