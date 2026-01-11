@@ -55,6 +55,7 @@ add_library(Common STATIC
         include/Network/Socket.h
         src/Epoll.cpp
         include/Epoll.h
+        include/Services/PacketsDispatchService/PacketsDispatchService.h
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)

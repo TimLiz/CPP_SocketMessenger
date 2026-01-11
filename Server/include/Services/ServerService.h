@@ -6,28 +6,26 @@
 #include "Services/ServiceBase.h"
 #include "spdlog/spdlog.h"
 
-using namespace Network;
-
 namespace Services {
-    class ServerService : public ServiceBase {
-            friend class Server::ClientConnection;
+class ServerService : public ServiceBase {
+        friend class Network::Server::ClientConnection;
 
-        private:
-            Socket socket;
-            Epoll::Epoll epoll{};
+    private:
+        Network::Socket socket;
+        Epoll::Epoll epoll{};
 
-            void clientsProcessingThreadEntryPoint();
+        void clientsProcessingThreadEntryPoint();
 
-            void processClient(const std::shared_ptr<Socket>& clientSocket);
+        void processClient(const std::shared_ptr<Network::Socket>& clientSocket);
 
-            void processClientDisconnect(std::shared_ptr<Server::ClientConnection> connection);
+        void processClientDisconnect(std::shared_ptr<Network::Server::ClientConnection> connection);
 
-        public:
-            ServerService(ServiceProvider& serviceProvider);
+    public:
+        ServerService(ServiceProvider& serviceProvider);
 
-            void run();
+        void run();
 
-            std::unordered_map<int, std::shared_ptr<Server::ClientConnection>> clients;
-    };
+        std::unordered_map<int, std::shared_ptr<Network::Server::ClientConnection>> clients;
+};
 } // namespace Services
 #endif
