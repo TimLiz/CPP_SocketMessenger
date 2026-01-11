@@ -1,0 +1,5 @@
+namespace Network.Packets;
+
+table ServerHello {}
+
+root_type ServerHello;

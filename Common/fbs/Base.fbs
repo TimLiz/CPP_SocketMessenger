@@ -1,9 +1,11 @@
 include "ClientHello.fbs";
+include "ServerHello.fbs";
 
 namespace Network.Packets;
 
 union Packets {
-    ClientHello
+    ClientHello,
+    ServerHello
 }
 
 table Base {
