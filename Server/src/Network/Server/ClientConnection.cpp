@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "Network/PacketView.h"
+#include "Services/PacketsDispatchService.h"
 #include "Services/ServerService.h"
 #include "boost/format.hpp"
 #include "spdlog/spdlog.h"
@@ -111,6 +112,8 @@ namespace Network::Server {
                     auto parsedView = packetView.GetParsedView();
                     auto packetType = parsedView->packet_union_type();
                     SPDLOG_WARN("Received packet with type {} from client", (int)packetType);
+
+                    service_provider.getService<Services::PacketsDispatchService>().dispatchPacket(parsedView, {*this});
 
                     currentPacketSizeExpected = 0; // So, next iteration we fetch new packet
                 }
