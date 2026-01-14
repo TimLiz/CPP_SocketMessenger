@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(SPDLOG_VERSION "v1.16.0")
 
 
-find_package(Boost REQUIRED COMPONENTS serialization)
+find_package(Boost REQUIRED COMPONENTS core)
 set(LIBS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libs/include)
 
 set(GENERATED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
@@ -18,6 +18,15 @@ FetchContent_Declare(spdlog
         GIT_TAG ${SPDLOG_VERSION}
 )
 FetchContent_MakeAvailable(spdlog)
+
+# Installing flatc
+FetchContent_Declare(
+        flatc_bin
+        URL "https://github.com/google/flatbuffers/releases/latest/download/Linux.flatc.binary.clang++-18.zip"
+)
+FetchContent_MakeAvailable(flatc_bin)
+
+set(FLATC_EXECUTEABLE_PATH "${flatc_bin_SOURCE_DIR}/flatc")
 
 # FlatBuffer generation
 file(
@@ -33,7 +42,7 @@ foreach (fbs ${fbsFiles})
 
     add_custom_command(
             OUTPUT ${out}
-            COMMAND flatc -o ${FLATBUFFERS_GENERATED_DIR} --cpp ${CMAKE_CURRENT_SOURCE_DIR}/fbs/${fbs}
+            COMMAND ${FLATC_EXECUTEABLE_PATH} -o ${FLATBUFFERS_GENERATED_DIR} --cpp ${CMAKE_CURRENT_SOURCE_DIR}/fbs/${fbs}
             DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fbs/${fbs}
             COMMENT "Generating header for ${fbs}"
     )
@@ -59,7 +68,7 @@ add_library(Common STATIC
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)
-target_link_libraries(Common PUBLIC Boost::serialization spdlog::spdlog)
+target_link_libraries(Common PUBLIC Boost::core spdlog::spdlog)
 
 
 target_compile_definitions(Common PUBLIC
