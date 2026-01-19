@@ -1,7 +1,5 @@
 project(Server)
 
-set(CMAKE_CXX_STANDARD 23)
-
 add_executable(Server ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
         src/Network/Server/ClientConnection.cpp
         include/Network/Server/ClientConnection.h
