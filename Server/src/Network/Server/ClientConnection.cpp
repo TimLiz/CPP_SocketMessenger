@@ -9,7 +9,6 @@
 #include "Network/PacketView.h"
 #include "Services/PacketsDispatchService.h"
 #include "Services/ServerService.h"
-#include "boost/format.hpp"
 #include "spdlog/spdlog.h"
 
 namespace Network::Server {

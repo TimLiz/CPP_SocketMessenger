@@ -1,0 +1,10 @@
+{
+  "name": "mymessenger",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "boost-core",
+    "flatbuffers",
+    "spdlog"
+  ],
+  "builtin-baseline": "58bb6778689746b6a48c2ee4a2dfdb0b70f681df"
+}
