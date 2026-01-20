@@ -14,7 +14,7 @@
 namespace Network::Server {
 ClientConnection::ClientConnection(Services::ServiceProvider& service_provider,
                                    std::shared_ptr<Socket> socketConnectionId)
-    : service_provider(service_provider), dispatchCtx(*this) {
+    : service_provider(service_provider), dispatchCtx({*this}) {
 
     socket = std::move(socketConnectionId);
     connectionId = getNextConnectionId();
@@ -24,10 +24,18 @@ void ClientConnection::scheduleDataSend(std::span<std::byte> buffer) {
     const bool shouldUpdateListener = sendBuffers.empty();
 
     std::vector<std::byte> buffTmp;
-    buffTmp.reserve(buffer.size() + sizeof(PacketView::PACKET_SIZE_TYPE));
-    *reinterpret_cast<PacketView::PACKET_SIZE_TYPE*>(buffTmp.data()) = buffer.size();
-    buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), buffer.begin(), buffer.end());
+    buffTmp.resize(buffer.size() + sizeof(PacketView::PACKET_SIZE_TYPE));
 
+    // Packet size
+    {
+        PacketView::PACKET_SIZE_TYPE bufferSize = buffer.size();
+        auto p = reinterpret_cast<std::byte*>(&bufferSize);
+
+        buffTmp.insert(buffTmp.begin(), p, p + sizeof(bufferSize));
+        *reinterpret_cast<PacketView::PACKET_SIZE_TYPE*>(buffTmp.data()) = buffer.size();
+    }
+
+    buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), buffer.begin(), buffer.end());
     sendBuffers.push_back(std::move(buffTmp));
 
     if (shouldUpdateListener) {
