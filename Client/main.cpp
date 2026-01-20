@@ -11,12 +11,9 @@ int main() {
     spdlog::set_level(static_cast<spdlog::level::level_enum>(SPDLOG_ACTIVE_LEVEL)); // Is being set by CMAKE
 
     Services::ServiceProvider service_provider;
-    // service_provider.getService<Services::PacketsDispatchService>().subscribeToPacket(
-    //     Network::Packets::Packets::Packets_ClientHello,
-    //     [](auto packet, auto ctx) {
-    //         SPDLOG_INFO("Hello from server!");
-    //     }
-    // );
+    service_provider.getService<Services::PacketsDispatchService>().subscribeToPacket(
+        Network::Packets::Packets::Packets_ServerHello,
+        [](auto packet, auto ctx) { SPDLOG_INFO("Hello from server!"); });
 
     Network::Socket clientSocket(Network::SocketType::SOCK_STREAM);
     if (clientSocket.connect("127.0.0.1", 25365) == -1) {

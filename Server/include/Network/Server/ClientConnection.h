@@ -5,42 +5,47 @@
 
 #include "Network/PacketView.h"
 #include "Network/Socket.h"
+#include "Services/PacketsDispatchService_/ServerPacketContext.h"
 #include "Services/ServiceProvider.h"
 
 namespace Services {
-    class ServerService;
+class ServerService;
 }
 
 namespace Network::Server {
-    class ClientConnection {
-        private:
-            inline static unsigned int nextConnectionId = 0;
+class ClientConnection {
+    private:
+        inline static unsigned int nextConnectionId = 0;
 
-            static unsigned int getNextConnectionId() { return nextConnectionId++; }
+        static unsigned int getNextConnectionId() { return nextConnectionId++; }
 
-            Services::ServiceProvider& service_provider;
-            std::shared_ptr<Socket> socket;
-            std::array<std::byte, 16000> buffer{};
-            int bytesInReadingBuffer = 0; // Amount of bytes in reading buffer
-            PacketView::PACKET_SIZE_TYPE currentPacketSizeExpected = 0;
-            std::vector<std::byte> packetBuffer; // Stores all chunks of current packet
-            std::list<std::vector<std::byte>> sendBuffers;
+        Services::ServiceProvider& service_provider;
+        std::shared_ptr<Socket> socket;
+        std::array<std::byte, 16000> buffer{};
+        int bytesInReadingBuffer = 0; // Amount of bytes in reading buffer
+        PacketView::PACKET_SIZE_TYPE currentPacketSizeExpected = 0;
+        std::vector<std::byte> packetBuffer; // Stores all chunks of current packet
+        std::list<std::vector<std::byte>> sendBuffers;
 
-        public:
-            unsigned int connectionId;
+        Services::PacketsDispatchService_::ServerPacketContext dispatchCtx;
 
-            ClientConnection(Services::ServiceProvider& service_provider, std::shared_ptr<Socket> socketConnectionId);
+    public:
+        unsigned int connectionId;
 
-            void scheduleDataSend(std::span<std::byte> buffer);
+        ClientConnection(Services::ServiceProvider& service_provider, std::shared_ptr<Socket> socketConnectionId);
 
-            bool onDataAvailable();
+        void scheduleDataSend(std::span<std::byte> buffer);
 
-            void onDataSendingAvailable();
-            void disconnect();
+        bool onDataAvailable();
 
-            int getFd() const { return socket->getFd(); }
+        void onDataSendingAvailable();
+        void disconnect();
 
-            bool isConnected = true;
-    };
+        void dispatchPacket(const Packets::Base* packet);
+
+        int getFd() const { return socket->getFd(); }
+
+        bool isConnected = true;
+};
 } // namespace Network::Server
 #endif

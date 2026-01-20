@@ -19,18 +19,17 @@ concept PacketDispatchContext = std::same_as<T, ServerPacketContext> || std::sam
  */
 template <PacketDispatchContext ContextType> class PacketsDispatchService_ : public ServiceBase {
     private:
-        typedef std::function<void(const Network::Packets::Base* packet, const ContextType& context)>
-            subscriberFunction;
+        typedef std::function<void(const Network::Packets::Base* packet, ContextType& context)> subscriberFunction;
         std::unordered_map<Network::Packets::Packets, std::vector<subscriberFunction>> subscribers;
 
     public:
         PacketsDispatchService_(ServiceProvider& serviceProvider) : ServiceBase(serviceProvider) {}
 
-        void subscribeToPacket(Network::Packets::Packets packet, const subscriberFunction& subscriber) {
-            subscribers[packet].push_back(subscriber);
+        template <class F> void subscribeToPacket(Network::Packets::Packets packet, F&& subscriber) {
+            subscribers[packet].emplace_back(std::forward<F>(subscriber));
         }
 
-        void dispatchPacket(const Network::Packets::Base* packet, const ContextType& context) {
+        void dispatchPacket(const Network::Packets::Base* packet, ContextType& context) {
             for (auto& subscriber : subscribers[packet->packet_union_type()]) {
                 subscriber(packet, context);
             }

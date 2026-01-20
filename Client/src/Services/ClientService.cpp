@@ -1,26 +1,35 @@
-#include "Network/Server/ClientConnection.h"
-
-#include <sys/epoll.h>
-#include <sys/socket.h>
-
-#include <iostream>
-#include <utility>
+#include "Services/ClientService.h"
 
 #include "Network/PacketView.h"
 #include "Services/PacketsDispatchService.h"
-#include "Services/ServerService.h"
 #include "spdlog/spdlog.h"
 
-namespace Network::Server {
-ClientConnection::ClientConnection(Services::ServiceProvider& service_provider,
-                                   std::shared_ptr<Socket> socketConnectionId)
-    : service_provider(service_provider), dispatchCtx(*this) {
+using namespace Services;
+using namespace Network;
 
-    socket = std::move(socketConnectionId);
-    connectionId = getNextConnectionId();
+ClientService::ClientService(ServiceProvider& serviceProvider)
+    : ServiceBase(serviceProvider), socket(Network::SocketType::SOCK_STREAM) {
+
+    static epoll_event eventDefault = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
+    if (epoll.addIntoPool(socket.getFd(), eventDefault) == -1) {
+        throw std::system_error(errno, std::system_category(), "addIntoPool");
+    }
+}
+int ClientService::connect(const std::string_view host, const int port) {
+    const auto ret = socket.connect(host, port);
+    if (ret != -1)
+        isConnected = true;
+
+    return ret;
 }
 
-void ClientConnection::scheduleDataSend(std::span<std::byte> buffer) {
+bool ClientService::onConnectionDied() {
+    SPDLOG_CRITICAL("Lost connection to the server.");
+    // TODO: Implement automatic reconnection
+    return false;
+}
+
+void ClientService::scheduleDataSend(std::span<std::byte> buffer) {
     const bool shouldUpdateListener = sendBuffers.empty();
 
     std::vector<std::byte> buffTmp;
@@ -32,32 +41,26 @@ void ClientConnection::scheduleDataSend(std::span<std::byte> buffer) {
 
     if (shouldUpdateListener) {
         static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLOUT};
-        events.data.u32 = this->connectionId;
 
-        service_provider.getService<Services::ServerService>().epoll.modifyInPool(this->socket->getFd(), events);
+        epoll.modifyInPool(this->socket.getFd(), events);
     }
 }
-
-/**
- *
- * @return False if connection was closed
- */
-bool ClientConnection::onDataAvailable() {
+bool ClientService::onDataAvailable() {
     while (true) {
         size_t bytesToRead = sizeof(buffer) - bytesInReadingBuffer;
-        int bytesReceived = this->socket->recv({buffer.data() + bytesInReadingBuffer, bytesToRead});
+        int bytesReceived = this->socket.recv({buffer.data() + bytesInReadingBuffer, bytesToRead});
 
         if (bytesReceived == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
             }
 
-            SPDLOG_ERROR("ClientConnection::onDataAvailable: recv failed: {}", strerror(errno));
+            SPDLOG_ERROR("ClientService::onDataAvailable: recv failed: {}", strerror(errno));
             disconnect();
             return false;
         }
         if (bytesReceived == 0) {
-            SPDLOG_DEBUG("Received gracefull disconnect request for connection {}", connectionId);
+            SPDLOG_DEBUG("Received graceful disconnect request from server");
             disconnect();
             return false;
         }
@@ -73,17 +76,13 @@ bool ClientConnection::onDataAvailable() {
                             sizeof(currentPacketSizeExpected));
 
                 if (currentPacketSizeExpected > PacketView::MAXIMUM_PACKET_SIZE) {
-                    SPDLOG_WARN("Client connection {} sent packet with size {} "
-                                "bytes what is "
-                                "larger than maximum allowed {} bytes",
-                                connectionId, currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
+                    SPDLOG_WARN("Server sent packet with size {} bytes what is larger than maximum allowed {} bytes",
+                                currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
                     disconnect();
                     return false;
                 }
 
-                SPDLOG_DEBUG("Received next packet size for client connection "
-                             "{} of {} bytes",
-                             connectionId, currentPacketSizeExpected);
+                SPDLOG_DEBUG("Received next packet size from server: {} bytes", currentPacketSizeExpected);
                 packetBuffer.reserve(currentPacketSizeExpected);
                 packetBuffer.resize(0);
 
@@ -91,8 +90,7 @@ bool ClientConnection::onDataAvailable() {
                 continue;
             }
 
-            // After size is obtained and buffer is reserved we can fetch packet
-            // body
+            // After size is obtained and buffer is reserved we can fetch packet body
             unsigned int packetBytesLeftToRead = currentPacketSizeExpected - packetBuffer.size();
             unsigned int bytesLeftInBuffer = bytesInReadingBuffer - currentReadingOffset;
             unsigned int bufferBytesGoingToRead = std::min(packetBytesLeftToRead, bytesLeftInBuffer);
@@ -104,7 +102,7 @@ bool ClientConnection::onDataAvailable() {
             if (packetBuffer.size() == currentPacketSizeExpected) {
                 auto packetView = PacketView(packetBuffer);
                 if (!packetView.verify()) {
-                    SPDLOG_WARN("Inbound verification for client connection {} failed.", connectionId);
+                    SPDLOG_WARN("Inbound packet from server failed.");
                     disconnect();
                     return false;
                 }
@@ -113,7 +111,8 @@ bool ClientConnection::onDataAvailable() {
                 auto packetType = parsedView->packet_union_type();
                 SPDLOG_WARN("Received packet with type {} from client", (int)packetType);
 
-                dispatchPacket(parsedView);
+                static PacketsDispatchService_::ClientPacketContext ctx = {};
+                _services.getService<PacketsDispatchService>().dispatchPacket(parsedView, ctx);
 
                 currentPacketSizeExpected = 0; // So, next iteration we fetch new packet
             }
@@ -122,16 +121,14 @@ bool ClientConnection::onDataAvailable() {
 
     return true;
 }
-
-void ClientConnection::onDataSendingAvailable() {
+void ClientService::onDataSendingAvailable() {
     while (true) {
         constexpr static int maximumBytesPerOperation = 4194304; // 4MB
 
         if (sendBuffers.empty()) {
             static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
-            events.data.u32 = this->connectionId;
 
-            service_provider.getService<Services::ServerService>().epoll.modifyInPool(this->socket->getFd(), events);
+            epoll.modifyInPool(this->socket.getFd(), events);
             return;
         }
 
@@ -147,7 +144,7 @@ void ClientConnection::onDataSendingAvailable() {
             operationBytesLeft -= bufferBytesToSend;
         }
 
-        int bytesSent = this->socket->send(iovecs);
+        int bytesSent = this->socket.send(iovecs);
         if (bytesSent == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 return;
@@ -176,14 +173,37 @@ void ClientConnection::onDataSendingAvailable() {
     }
 }
 
-void ClientConnection::disconnect() {
-    if (isConnected) {
-        SPDLOG_DEBUG("Client connection {} is marked as disconnected", connectionId);
-        isConnected = false;
+void ClientService::run() {
+    SPDLOG_DEBUG("ClientService::run");
+    static constexpr int EPOLL_EVENT_BUFFER_SIZE = 128;
+
+    std::array<epoll_event, EPOLL_EVENT_BUFFER_SIZE> epollEventsBuffer{};
+    while (true) {
+        const int eventsCount = epoll.epoll_wait(epollEventsBuffer);
+        if (eventsCount == -1) {
+            throw std::system_error(errno, std::system_category(), "epoll_wait");
+        }
+
+        for (int i = 0; i < eventsCount; i++) {
+            auto event = epollEventsBuffer[i];
+
+            if (event.events & EPOLLRDHUP or event.events & EPOLLHUP) {
+                if (!onConnectionDied()) {
+                    return;
+                }
+            }
+
+            if (event.events & EPOLLIN) {
+                if (!onDataAvailable()) {
+                    if (!onConnectionDied()) {
+                        return;
+                    }
+                }
+            }
+
+            if (event.events & EPOLLOUT) {
+                onDataSendingAvailable();
+            }
+        }
     }
 }
-
-void ClientConnection::dispatchPacket(const Packets::Base* packet) {
-    service_provider.getService<Services::PacketsDispatchService>().dispatchPacket(packet, dispatchCtx);
-}
-} // namespace Network::Server

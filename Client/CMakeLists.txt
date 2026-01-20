@@ -3,6 +3,8 @@ project(Client)
 add_executable(Client ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
         include/Services/PacketsDispatchService_/ClientPacketContext.h
         include/Services/PacketsDispatchService.h
+        src/Services/ClientService.cpp
+        include/Services/ClientService.h
 )
 
 target_include_directories(Client PRIVATE include)
