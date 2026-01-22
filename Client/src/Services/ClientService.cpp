@@ -34,7 +34,15 @@ void ClientService::scheduleDataSend(std::span<std::byte> buffer) {
 
     std::vector<std::byte> buffTmp;
     buffTmp.reserve(buffer.size() + sizeof(PacketView::PACKET_SIZE_TYPE));
-    *reinterpret_cast<PacketView::PACKET_SIZE_TYPE*>(buffTmp.data()) = buffer.size();
+
+    // Packet size
+    {
+        PacketView::PACKET_SIZE_TYPE bufferSize = buffer.size();
+        auto p = reinterpret_cast<std::byte*>(&bufferSize);
+
+        buffTmp.insert(buffTmp.begin(), p, p + sizeof(bufferSize));
+    }
+
     buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), buffer.begin(), buffer.end());
 
     sendBuffers.push_back(std::move(buffTmp));
@@ -45,6 +53,7 @@ void ClientService::scheduleDataSend(std::span<std::byte> buffer) {
         epoll.modifyInPool(this->socket.getFd(), events);
     }
 }
+
 bool ClientService::onDataAvailable() {
     while (true) {
         size_t bytesToRead = sizeof(buffer) - bytesInReadingBuffer;

@@ -16,7 +16,8 @@ int main() {
 
             auto fb_builder = flatbuffers::FlatBufferBuilder();
             auto serverHelloPacket = Network::Packets::CreateServerHello(fb_builder);
-            auto basePacket = Network::Packets::CreateBase(fb_builder);
+            auto basePacket = Network::Packets::CreateBase(fb_builder, Network::Packets::Packets_ServerHello,
+                                                           serverHelloPacket.Union());
             fb_builder.Finish(basePacket);
 
             context.clientConnection.scheduleDataSend(

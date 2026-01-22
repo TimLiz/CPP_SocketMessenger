@@ -1,6 +1,7 @@
 #include <iostream>
 
-#include "../Common/include/Network/Socket.h"
+#include "Network/Socket.h"
+#include "Services/ClientService.h"
 #include "fbs/Base_generated.h"
 #include "fbs/ClientHello_generated.h"
 #include "spdlog/spdlog.h"
@@ -15,31 +16,19 @@ int main() {
         Network::Packets::Packets::Packets_ServerHello,
         [](auto packet, auto ctx) { SPDLOG_INFO("Hello from server!"); });
 
-    Network::Socket clientSocket(Network::SocketType::SOCK_STREAM);
-    if (clientSocket.connect("127.0.0.1", 25365) == -1) {
+    auto& clientService = service_provider.getService<Services::ClientService>();
+    if (clientService.connect("127.0.0.1", 25365) == -1) {
         spdlog::critical("Failed to connect to server");
         return -1;
     }
 
-    flatbuffers::FlatBufferBuilder builder;
-    auto clientHelloPacket = Network::Packets::CreateClientHello(builder);
+    auto fb_builder = flatbuffers::FlatBufferBuilder();
+    auto clientHelloPacket = Network::Packets::CreateClientHello(fb_builder);
     auto basePacket =
-        Network::Packets::CreateBase(builder, Network::Packets::Packets_ClientHello, clientHelloPacket.Union());
-    builder.Finish(basePacket);
+        Network::Packets::CreateBase(fb_builder, Network::Packets::Packets_ClientHello, clientHelloPacket.Union());
+    fb_builder.Finish(basePacket);
 
-    std::vector<std::byte> sendBuffer;
-    sendBuffer.resize(4 + builder.GetSize());
-    sendBuffer[0] = static_cast<std::byte>(builder.GetSize());
-    std::memcpy(sendBuffer.data() + 4, builder.GetBufferPointer(), builder.GetSize());
+    clientService.scheduleDataSend({reinterpret_cast<std::byte*>(fb_builder.GetBufferPointer()), fb_builder.GetSize()});
 
-    std::vector<iovec> iov;
-    iov.push_back({sendBuffer.data(), sendBuffer.size()});
-
-    if (clientSocket.send(iov) == -1) {
-        spdlog::critical("Failed to send client hello");
-    }
-
-    int e;
-    std::cin >> e;
-    return 0;
+    clientService.run();
 }
