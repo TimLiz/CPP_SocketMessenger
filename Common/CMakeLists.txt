@@ -49,6 +49,8 @@ add_library(Common STATIC
         src/Epoll.cpp
         include/Epoll.h
         include/Services/PacketsDispatchService/PacketsDispatchService.h
+        src/Network/Peer.cpp
+        include/Network/Peer.h
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)
