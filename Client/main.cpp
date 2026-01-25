@@ -30,5 +30,7 @@ int main() {
 
     clientService.scheduleDataSend({reinterpret_cast<std::byte*>(fb_builder.GetBufferPointer()), fb_builder.GetSize()});
 
+    fb_builder.Clear();
+
     clientService.run();
 }
