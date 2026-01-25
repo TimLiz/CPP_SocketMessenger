@@ -16,7 +16,7 @@ class ServerService : public ServiceBase {
 
         void clientsProcessingThreadEntryPoint();
 
-        void processClient(const std::shared_ptr<Network::Socket>& clientSocket);
+        void processClient(std::unique_ptr<Network::Socket> clientSocket);
 
         void processClientDisconnect(std::shared_ptr<Network::Server::ClientConnection> connection);
 

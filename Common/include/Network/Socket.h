@@ -30,7 +30,7 @@ class Socket {
 
         int listen();
 
-        std::shared_ptr<Socket> accept();
+        std::unique_ptr<Socket> accept() const;
 
         int setNonBlocking();
 

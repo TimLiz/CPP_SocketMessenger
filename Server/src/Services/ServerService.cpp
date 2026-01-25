@@ -46,13 +46,13 @@ void ServerService::clientsProcessingThreadEntryPoint() {
     }
 }
 
-void ServerService::processClient(const std::shared_ptr<Socket>& clientSocket) {
+void ServerService::processClient(std::unique_ptr<Socket> clientSocket) {
     SPDLOG_DEBUG("Processing new client");
     if (clientSocket->setNonBlocking() == -1) {
         throw std::system_error(errno, std::system_category(), "Failed to set client non-blocking");
     }
 
-    auto newClient = new Server::ClientConnection(_services, clientSocket);
+    auto newClient = new Server::ClientConnection(_services, std::move(clientSocket));
     clients.emplace(newClient->connectionId, newClient);
 
     static epoll_event epollEvent_forNewConns = {EPOLLIN | EPOLLRDHUP | EPOLLHUP, nullptr};
@@ -96,7 +96,7 @@ void ServerService::run() {
         }
 
         try {
-            this->processClient(acceptedConnection);
+            this->processClient(std::move(acceptedConnection));
         } catch (const std::exception& e) {
             SPDLOG_ERROR("Client processing failed: {}", e.what());
             return;
