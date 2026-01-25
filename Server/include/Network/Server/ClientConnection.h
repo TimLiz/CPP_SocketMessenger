@@ -4,6 +4,7 @@
 #include <list>
 
 #include "Network/PacketView.h"
+#include "Network/Peer.h"
 #include "Network/Socket.h"
 #include "Services/PacketsDispatchService_/ServerPacketContext.h"
 #include "Services/ServiceProvider.h"
@@ -16,34 +17,28 @@ namespace Network::Server {
 class ClientConnection {
     private:
         inline static unsigned int nextConnectionId = 0;
-
         static unsigned int getNextConnectionId() { return nextConnectionId++; }
 
         Services::ServiceProvider& service_provider;
-        std::shared_ptr<Socket> socket;
-        std::array<std::byte, 16000> buffer{};
-        int bytesInReadingBuffer = 0; // Amount of bytes in reading buffer
-        PacketView::PACKET_SIZE_TYPE currentPacketSizeExpected = 0;
-        std::vector<std::byte> packetBuffer; // Stores all chunks of current packet
-        std::list<std::vector<std::byte>> sendBuffers;
 
         Services::PacketsDispatchService_::ServerPacketContext dispatchCtx;
+
+        std::unique_ptr<Peer> networkPeer;
 
     public:
         unsigned int connectionId;
 
-        ClientConnection(Services::ServiceProvider& service_provider, std::shared_ptr<Socket> socketConnectionId);
+        ClientConnection(Services::ServiceProvider& service_provider, std::unique_ptr<Socket> clientSocket);
 
-        void scheduleDataSend(std::span<std::byte> buffer);
+        void scheduleBufferSend(std::span<std::byte> buffer) { return networkPeer->scheduleBufferSend(buffer); };
 
-        bool onDataAvailable();
+        bool onDataAvailable() { return networkPeer->onDataAvailable(); };
 
-        void onDataSendingAvailable();
-        void disconnect();
+        void onDataSendingAvailable() { return networkPeer->onDataSendingAvailable(); };
 
-        void dispatchPacket(const Packets::Base* packet);
+        void disconnect() { return networkPeer->disconnect(); };
 
-        int getFd() const { return socket->getFd(); }
+        int getFd() const noexcept { return networkPeer->getFd(); }
 
         bool isConnected = true;
 };

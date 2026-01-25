@@ -10,7 +10,7 @@ void ServerService::clientsProcessingThreadEntryPoint() {
 
     std::array<epoll_event, EPOLL_EVENT_BUFFER_SIZE> epollEventsBuffer{};
     while (true) {
-        const int eventsCount = epoll.epoll_wait(epollEventsBuffer);
+        const int eventsCount = epoll->epoll_wait(epollEventsBuffer);
         if (eventsCount == -1) {
             throw std::system_error(errno, std::system_category(), "epoll_wait");
         }
@@ -54,17 +54,10 @@ void ServerService::processClient(std::unique_ptr<Socket> clientSocket) {
 
     auto newClient = new Server::ClientConnection(_services, std::move(clientSocket));
     clients.emplace(newClient->connectionId, newClient);
-
-    static epoll_event epollEvent_forNewConns = {EPOLLIN | EPOLLRDHUP | EPOLLHUP, nullptr};
-
-    epollEvent_forNewConns.data.u32 = newClient->connectionId;
-    if (epoll.addIntoPool(clientSocket->getFd(), epollEvent_forNewConns) == -1) {
-        throw std::system_error(errno, std::system_category(), "Failed to add in pool");
-    }
 }
 
 void ServerService::processClientDisconnect(std::shared_ptr<Server::ClientConnection> connection) {
-    epoll.removeFromPool(connection->getFd());
+    epoll->removeFromPool(connection->getFd());
     connection->disconnect();
 
     clients.erase(connection->connectionId);

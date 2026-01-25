@@ -20,7 +20,7 @@ int main() {
                                                            serverHelloPacket.Union());
             fb_builder.Finish(basePacket);
 
-            context.clientConnection.scheduleDataSend(
+            context.clientConnection.scheduleBufferSend(
                 {reinterpret_cast<std::byte*>(fb_builder.GetBufferPointer()), fb_builder.GetSize()});
 
             fb_builder.Clear();

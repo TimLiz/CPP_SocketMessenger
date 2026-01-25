@@ -12,7 +12,7 @@ class ServerService : public ServiceBase {
 
     private:
         Network::Socket socket;
-        Epoll::Epoll epoll{};
+        std::shared_ptr<Epoll::Epoll> epoll = std::make_shared<Epoll::Epoll>();
 
         void clientsProcessingThreadEntryPoint();
 
