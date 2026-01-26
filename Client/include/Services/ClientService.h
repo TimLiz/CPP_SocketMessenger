@@ -15,6 +15,7 @@ class ClientService : public ServiceBase {
     private:
         std::unique_ptr<Network::Peer> networkPeer;
         std::shared_ptr<Epoll::Epoll> epoll = std::make_shared<Epoll::Epoll>();
+        bool isRunning;
 
     public:
         ClientService(ServiceProvider& serviceProvider);
@@ -32,6 +33,8 @@ class ClientService : public ServiceBase {
          * This function WILL yield
          */
         void run();
+
+        void stop();
 
         void scheduleDataSend(std::span<const std::byte> buffer) const;
 };

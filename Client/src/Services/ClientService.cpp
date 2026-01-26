@@ -37,11 +37,13 @@ bool ClientService::onConnectionDied() {
 }
 
 void ClientService::run() {
+    isRunning = true;
+
     SPDLOG_DEBUG("ClientService::run");
     static constexpr int EPOLL_EVENT_BUFFER_SIZE = 128;
 
     std::array<epoll_event, EPOLL_EVENT_BUFFER_SIZE> epollEventsBuffer{};
-    while (true) {
+    while (isRunning) {
         const int eventsCount = epoll->epoll_wait(epollEventsBuffer);
         if (eventsCount == -1) {
             throw std::system_error(errno, std::system_category(), "epoll_wait");
@@ -70,6 +72,8 @@ void ClientService::run() {
         }
     }
 }
+void ClientService::stop() { isRunning = false; }
+
 void ClientService::scheduleDataSend(const std::span<const std::byte> buffer) const {
     networkPeer->scheduleBufferSend(buffer);
 }
