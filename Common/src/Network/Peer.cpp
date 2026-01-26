@@ -8,11 +8,7 @@ namespace Network {
 Peer::Peer(const std::shared_ptr<Epoll::Epoll>& epl, PacketHandlerCallable packetHandler)
     : epoll(epl), packetHandler(std::move(packetHandler)) {}
 
-Peer::~Peer() {
-    if (isConnected) {
-        socket->close();
-    }
-}
+Peer::~Peer() { disconnect(); }
 
 void Peer::scheduleBufferSend(std::span<const std::byte> buffer) {
     const bool shouldUpdateListener = sendBuffers.empty();
@@ -194,8 +190,11 @@ void Peer::onDataSendingAvailable() {
 
 void Peer::disconnect() {
     if (isConnected) {
-        SPDLOG_DEBUG("Remote peer( sockFd: {} ) is marked as disconnected", socket->getFd());
-        socket->close();
+        SPDLOG_DEBUG("Remote peer( sockFd: {} ) is marked as disconnected", getFd());
+
+        if (socket->close() == -1) {
+            SPDLOG_WARN("Failed to release socket FD {}", getFd());
+        }
         isConnected = false;
     }
 }
