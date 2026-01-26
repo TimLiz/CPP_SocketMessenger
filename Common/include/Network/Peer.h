@@ -14,7 +14,7 @@ class Peer {
         std::unique_ptr<Socket> socket;
         std::shared_ptr<Epoll::Epoll> epoll;
 
-        void* epollExtraData = nullptr;
+        epoll_data epollExtraData;
 
         /**
          * This is list of buffers queued for send to the remote system
@@ -42,7 +42,7 @@ class Peer {
 
         void setSocket(std::unique_ptr<Socket> newSocket);
 
-        void setEpollData(void* data) noexcept { epollExtraData = data; }
+        void setEpollData(const epoll_data data) noexcept { epollExtraData = data; }
 
         /**
          * Must be called each time incoming data detected by epoll controller

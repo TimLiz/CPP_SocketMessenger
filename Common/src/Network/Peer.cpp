@@ -34,7 +34,7 @@ void Peer::scheduleBufferSend(std::span<const std::byte> buffer) {
 
     if (shouldUpdateListener) {
         static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLOUT};
-        events.data.ptr = epollExtraData;
+        events.data = epollExtraData;
         epoll->modifyInPool(getFd(), events);
     }
 }
@@ -46,7 +46,7 @@ void Peer::setSocket(std::unique_ptr<Socket> newSocket) {
     socket = std::move(newSocket);
 
     static epoll_event eventDefault = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
-    eventDefault.data.ptr = epollExtraData;
+    eventDefault.data = epollExtraData;
 
     if (epoll->addIntoPool(getFd(), eventDefault) == -1) {
         throw std::system_error(errno, std::system_category(), "addIntoPool");
@@ -145,7 +145,7 @@ void Peer::onDataSendingAvailable() {
 
         if (sendBuffers.empty()) {
             static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
-            events.data.ptr = epollExtraData;
+            events.data = epollExtraData;
             epoll->modifyInPool(getFd(), events);
 
             return;
