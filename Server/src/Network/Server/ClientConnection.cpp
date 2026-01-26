@@ -19,6 +19,7 @@ ClientConnection::ClientConnection(Services::ServiceProvider& service_provider, 
 
     connectionId = getNextConnectionId();
 
+    networkPeer->setEpollData({.u32 = connectionId});
     networkPeer->setSocket(std::move(clientSocket));
 }
 
