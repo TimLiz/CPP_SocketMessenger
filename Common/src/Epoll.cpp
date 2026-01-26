@@ -2,12 +2,19 @@
 
 #include <sys/epoll.h>
 #include <system_error>
+#include <unistd.h>
 #include <vector>
 
 Epoll::Epoll::Epoll() {
     epollFd = epoll_create1(0);
     if (epollFd == -1) {
         throw std::system_error(errno, std::system_category(), "epoll_create1");
+    }
+}
+
+Epoll::Epoll::~Epoll() {
+    if (epollFd != -1) {
+        epoll_close();
     }
 }
 
@@ -29,4 +36,13 @@ int Epoll::Epoll::epoll_wait(std::span<epoll_event> buffer) {
 
         return eventsCount;
     }
+}
+int Epoll::Epoll::epoll_close() {
+    const auto fd = close(epollFd);
+
+    if (fd != -1) {
+        epollFd = -1;
+    }
+
+    return fd;
 }
