@@ -47,7 +47,7 @@ void ServerService::clientsProcessingThreadEntryPoint() {
 }
 
 void ServerService::processClient(std::unique_ptr<Socket> clientSocket) {
-    SPDLOG_DEBUG("Processing new client");
+    SPDLOG_DEBUG("Processing new client ( sockFD {} )", clientSocket->getFd());
     if (clientSocket->setNonBlocking() == -1) {
         throw std::system_error(errno, std::system_category(), "Failed to set client non-blocking");
     }
@@ -61,8 +61,7 @@ void ServerService::processClientDisconnect(std::shared_ptr<Server::ClientConnec
     connection->disconnect();
 
     clients.erase(connection->connectionId);
-    SPDLOG_DEBUG("Client connection {} with sockFd {} completely disconnected", connection->connectionId,
-                 connection->getFd());
+    SPDLOG_DEBUG("Client connection {} completely disconnected", connection->connectionId);
 }
 
 ServerService::ServerService(ServiceProvider& serviceProvider)

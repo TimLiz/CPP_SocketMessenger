@@ -21,6 +21,8 @@ ClientConnection::ClientConnection(Services::ServiceProvider& service_provider, 
 
     networkPeer->setEpollData({.u32 = connectionId});
     networkPeer->setSocket(std::move(clientSocket));
+
+    SPDLOG_DEBUG("Created new ClientConnection ( fd: {}, connId: {} )", networkPeer->getFd(), connectionId);
 }
 
 } // namespace Network::Server
