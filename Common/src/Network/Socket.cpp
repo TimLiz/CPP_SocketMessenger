@@ -1,4 +1,4 @@
-#include "../../include/Network/Socket.h"
+#include "Network/Socket.h"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -29,7 +29,7 @@ int Socket::bindLoopback(const int port) {
 
 Socket::~Socket() {
     if (sockFd != -1) {
-        ::close(sockFd);
+        close();
     }
 }
 
@@ -61,5 +61,13 @@ int Socket::send(const std::vector<iovec>& toSend) { return writev(sockFd, toSen
 
 int Socket::recv(std::span<std::byte> buffer) { return ::recv(sockFd, buffer.data(), buffer.size(), 0); }
 
-int Socket::close() { return ::close(sockFd); }
+int Socket::close() {
+    const auto res = ::close(sockFd);
+
+    if (res != -1) {
+        sockFd = -1;
+    }
+
+    return res;
+}
 } // namespace Network
