@@ -8,8 +8,6 @@
 #include "Network/Peer.h"
 #include "list"
 
-// TODO: May be make something like Peer class to put functions like scheduleSend and packet fetching ones into to
-// remove all this duplicated code
 namespace Services {
 class ClientService : public ServiceBase {
     private:
