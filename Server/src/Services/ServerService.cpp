@@ -21,8 +21,10 @@ void ServerService::clientsProcessingThreadEntryPoint() {
             std::shared_ptr<Server::ClientConnection> clientConnection;
             {
                 auto it = clients.find(event.data.u32);
-                if (it == clients.end())
+                if (it == clients.end()) {
+                    SPDLOG_ERROR("Received epoll event for client {}, but this client is not found.", event.events);
                     continue;
+                }
 
                 clientConnection = it->second;
             }
