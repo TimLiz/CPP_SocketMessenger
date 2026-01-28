@@ -3,14 +3,16 @@
 #include "Epoll.h"
 #include "Socket.h"
 
+#include "functional"
 #include "list"
 
 namespace Network {
 
 class Peer {
-    private:
+    public:
         using PacketHandlerCallable = std::function<void(const Packets::Base* packet)>;
 
+    private:
         std::unique_ptr<Socket> socket;
         std::shared_ptr<Epoll::Epoll> epoll;
 
