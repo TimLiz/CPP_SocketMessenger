@@ -25,7 +25,9 @@ int ClientService::connect(const std::string_view host, const int port) {
     socket->setNonBlocking();
 
     networkPeer->isConnected = true;
-    networkPeer->setSocket(std::move(socket));
+
+    auto basicTransport = std::make_unique<BasicTransport>(std::move(socket));
+    networkPeer->setTransport(std::move(basicTransport));
 
     return status;
 }
@@ -37,6 +39,8 @@ bool ClientService::onConnectionDied() {
 }
 
 void ClientService::run() {
+    networkPeer->enable();
+
     isRunning = true;
 
     SPDLOG_DEBUG("ClientService::run");

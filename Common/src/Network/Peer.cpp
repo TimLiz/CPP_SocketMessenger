@@ -10,9 +10,20 @@ Peer::Peer(const std::shared_ptr<Epoll::Epoll>& epl, PacketHandlerCallable packe
 
 Peer::~Peer() { disconnect(); }
 
-void Peer::scheduleBufferSend(std::span<const std::byte> buffer) {
-    const bool shouldUpdateListener = sendBuffers.empty();
+void Peer::trySyncEpollInterests() const {
+    if (!isEnabled) // In case if called before Peer.enable()
+        return;
 
+    if (epoll_event epollEvents; transport->tryGetEpollInterests(epollEvents.events)) {
+        epollEvents.data = epollExtraData;
+
+        if (epoll->modifyInPool(getFd(), epollEvents) == -1) {
+            SPDLOG_WARN("Failed to modify epoll interests for fd {}, err: {}", getFd(), strerror(errno));
+        }
+    }
+}
+
+void Peer::scheduleBufferSend(std::span<const std::byte> buffer) const {
     std::vector<std::byte> buffTmp;
     buffTmp.reserve(buffer.size() + sizeof(PacketView::PACKET_SIZE_TYPE));
 
@@ -26,25 +37,32 @@ void Peer::scheduleBufferSend(std::span<const std::byte> buffer) {
 
     buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), buffer.begin(), buffer.end());
 
-    sendBuffers.push_back(std::move(buffTmp));
+    transport->scheduleBufferSend(std::move(buffTmp));
 
-    if (shouldUpdateListener) {
-        static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLOUT};
-        events.data = epollExtraData;
-        epoll->modifyInPool(getFd(), events);
-    }
+    trySyncEpollInterests();
 }
 
-void Peer::setSocket(std::unique_ptr<Socket> newSocket) {
-    if (socket != nullptr) {
+void Peer::setTransport(std::unique_ptr<ITransport> newTransport) {
+    if (isEnabled) {
         epoll->removeFromPool(getFd());
+        isEnabled = false;
     }
-    socket = std::move(newSocket);
 
-    static epoll_event eventDefault = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
-    eventDefault.data = epollExtraData;
+    transport = std::move(newTransport);
+}
 
-    if (epoll->addIntoPool(getFd(), eventDefault) == -1) {
+void Peer::enable() {
+    isEnabled = true;
+
+    epoll_event epollEvents;
+    epollEvents.data = epollExtraData;
+    if (transport->tryGetEpollInterests(epollEvents.events)) {
+        epollEvents.data = epollExtraData;
+    } else {
+        epollEvents.events = EPOLLIN | EPOLLRDHUP | EPOLLHUP;
+    }
+
+    if (epoll->addIntoPool(getFd(), epollEvents) == -1) {
         throw std::system_error(errno, std::system_category(), "addIntoPool");
     }
 }
@@ -52,7 +70,7 @@ void Peer::setSocket(std::unique_ptr<Socket> newSocket) {
 bool Peer::onDataAvailable() {
     while (true) {
         size_t bytesToRead = sizeof(rBuffer) - bytesInReadingBuffer;
-        int bytesReceived = this->socket->recv({rBuffer.data() + bytesInReadingBuffer, bytesToRead});
+        int bytesReceived = transport->read({rBuffer.data() + bytesInReadingBuffer, bytesToRead});
 
         if (bytesReceived == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -65,7 +83,7 @@ bool Peer::onDataAvailable() {
         }
 
         if (bytesReceived == 0) {
-            SPDLOG_DEBUG("Remote peer( sockFd: {} ) sent graceful disconnect", socket->getFd());
+            SPDLOG_DEBUG("Remote peer( sockFd: {} ) sent graceful disconnect", getFd());
             disconnect();
             return false;
         }
@@ -85,14 +103,14 @@ bool Peer::onDataAvailable() {
                     SPDLOG_WARN("Remote peer( sockFd: {} ) announced packet with size {} "
                                 "bytes what is "
                                 "larger than maximum allowed {} bytes",
-                                socket->getFd(), currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
+                                getFd(), currentPacketSizeExpected, PacketView::MAXIMUM_PACKET_SIZE);
 
                     disconnect();
                     return false;
                 }
 
                 SPDLOG_DEBUG("Remote peer( sockFd: {} ) sent next packet announcement for next packet of {} bytes",
-                             socket->getFd(), currentPacketSizeExpected);
+                             getFd(), currentPacketSizeExpected);
 
                 packetBuffer.reserve(currentPacketSizeExpected);
                 packetBuffer.resize(0);
@@ -114,15 +132,22 @@ bool Peer::onDataAvailable() {
             if (packetBuffer.size() == currentPacketSizeExpected) {
                 auto packetView = PacketView(packetBuffer);
                 if (!packetView.verify()) {
-                    SPDLOG_WARN("Remote peer( sockFd: {} ) sent an invalid packet", socket->getFd());
+                    SPDLOG_WARN("Remote peer( sockFd: {} ) sent an invalid packet", getFd());
                     disconnect();
                     return false;
                 }
 
                 auto parsedView = packetView.GetParsedView();
                 auto packetType = parsedView->packet_union_type();
+                if (packetType == Packets::Packets_NONE) {
+                    SPDLOG_WARN("Received packet of type NONE from Remote peer( sockFd: {} ). Closing connection.",
+                                getFd());
+                    disconnect();
+                    return false;
+                }
+
                 SPDLOG_DEBUG("Received packet of type {} from Remote peer( sockFd: {} )", static_cast<int>(packetType),
-                             socket->getFd());
+                             getFd());
 
                 packetHandler(parsedView);
 
@@ -132,67 +157,22 @@ bool Peer::onDataAvailable() {
         bytesInReadingBuffer = 0;
     }
 
+    trySyncEpollInterests();
     return true;
 }
 
-void Peer::onDataSendingAvailable() {
-    while (true) {
-        constexpr static int maximumBytesPerOperation = 4194304; // 4MB
+void Peer::onDataSendingAvailable() const {
+    transport->onDataSendingAvailable();
 
-        if (sendBuffers.empty()) {
-            static epoll_event events = {EPOLLIN | EPOLLRDHUP | EPOLLHUP};
-            events.data = epollExtraData;
-            epoll->modifyInPool(getFd(), events);
-
-            return;
-        }
-
-        std::vector<iovec> iovecs;
-        int operationBytesLeft = maximumBytesPerOperation;
-        for (auto& currentBuffer : sendBuffers) {
-            if (operationBytesLeft == 0) {
-                break;
-            }
-
-            int bufferBytesToSend = std::min(static_cast<size_t>(operationBytesLeft), currentBuffer.size());
-            iovecs.emplace_back(iovec{currentBuffer.data(), static_cast<size_t>(bufferBytesToSend)});
-            operationBytesLeft -= bufferBytesToSend;
-        }
-
-        int bytesSent = this->socket->send(iovecs);
-        if (bytesSent == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                return;
-            }
-
-            SPDLOG_ERROR("ClientConnection::onDataSendingAvailable: send failed: {}", strerror(errno));
-            disconnect();
-            return;
-        }
-
-        auto currentBufferIt = sendBuffers.begin();
-        while (currentBufferIt != sendBuffers.end()) {
-            if (currentBufferIt->size() <= bytesSent) {
-                bytesSent -= currentBufferIt->size();
-                currentBufferIt = sendBuffers.erase(currentBufferIt);
-                continue;
-            }
-
-            currentBufferIt->erase(currentBufferIt->begin(), currentBufferIt->begin() + bytesSent);
-            break;
-        }
-
-        if (bytesSent == 0) {
-            return;
-        }
-    }
+    trySyncEpollInterests();
 }
 
+// We don't need to remove interests from epoll here, right?
 void Peer::disconnect() {
     if (isConnected) {
         SPDLOG_DEBUG("Remote peer( sockFd: {} ) is marked as disconnected", getFd());
 
-        if (socket->close() == -1) {
+        if (transport->disconnect() == -1) {
             SPDLOG_WARN("Failed to release socket FD {}", getFd());
         }
         isConnected = false;

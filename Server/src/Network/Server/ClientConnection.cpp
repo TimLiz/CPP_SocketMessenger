@@ -20,7 +20,9 @@ ClientConnection::ClientConnection(Services::ServiceProvider& service_provider, 
     connectionId = getNextConnectionId();
 
     networkPeer->setEpollData({.u32 = connectionId});
-    networkPeer->setSocket(std::move(clientSocket));
+
+    auto transport = std::make_unique<BasicTransport>(std::move(clientSocket));
+    networkPeer->setTransport(std::move(transport));
 
     SPDLOG_DEBUG("Created new ClientConnection ( fd: {}, connId: {} )", networkPeer->getFd(), connectionId);
 }

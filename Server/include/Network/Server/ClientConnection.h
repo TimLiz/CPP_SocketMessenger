@@ -38,6 +38,12 @@ class ClientConnection {
 
         void disconnect() { return networkPeer->disconnect(); };
 
+        /**
+         * Calls peer->enable
+         * * Makes peer add its initial interests into epoll
+         */
+        void enable() const { networkPeer->enable(); };
+
         int getFd() const noexcept { return networkPeer->getFd(); }
 
         bool isConnected = true;

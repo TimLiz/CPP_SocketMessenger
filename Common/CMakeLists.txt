@@ -51,6 +51,9 @@ add_library(Common STATIC
         include/Services/PacketsDispatchService/PacketsDispatchService.h
         src/Network/Peer.cpp
         include/Network/Peer.h
+        include/Network/Transport/ITransport.h
+        src/Network/Transport/BasicTransport.cpp
+        include/Network/Transport/BasicTransport.h
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)

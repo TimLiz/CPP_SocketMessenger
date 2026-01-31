@@ -5,13 +5,18 @@
 
 #include "list"
 
+#include "Transport/BasicTransport.h"
+
 namespace Network {
 
 class Peer {
     private:
+        bool isEnabled = false;
+
         using PacketHandlerCallable = std::function<void(const Packets::Base* packet)>;
 
-        std::unique_ptr<Socket> socket;
+        std::unique_ptr<ITransport> transport;
+
         std::shared_ptr<Epoll::Epoll> epoll;
 
         epoll_data epollExtraData;
@@ -29,6 +34,8 @@ class Peer {
 
         PacketHandlerCallable packetHandler;
 
+        void trySyncEpollInterests() const;
+
     public:
         bool isConnected = true;
 
@@ -36,13 +43,23 @@ class Peer {
 
         virtual ~Peer();
 
-        void scheduleBufferSend(std::span<const std::byte> buffer);
+        void scheduleBufferSend(std::span<const std::byte> buffer) const;
 
-        const int getFd() const noexcept { return socket->getFd(); }
+        int getFd() const noexcept {
+            if (transport == nullptr) {
+                return -1;
+            }
+            return transport->getFd();
+        }
 
-        void setSocket(std::unique_ptr<Socket> newSocket);
+        void setTransport(std::unique_ptr<ITransport> newTransport);
 
         void setEpollData(const epoll_data data) noexcept { epollExtraData = data; }
+
+        /**
+         * Needs to be called to add initial interests into epoll
+         */
+        void enable();
 
         /**
          * Must be called each time incoming data detected by epoll controller
@@ -50,7 +67,7 @@ class Peer {
          */
         bool onDataAvailable();
 
-        void onDataSendingAvailable();
+        void onDataSendingAvailable() const;
 
         void disconnect();
 };

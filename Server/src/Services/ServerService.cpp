@@ -56,6 +56,8 @@ void ServerService::processClient(std::unique_ptr<Socket> clientSocket) {
 
     auto newClient = new Server::ClientConnection(_services, std::move(clientSocket));
     clients.emplace(newClient->connectionId, newClient);
+
+    newClient->enable();
 }
 
 void ServerService::processClientDisconnect(std::shared_ptr<Server::ClientConnection> connection) {
