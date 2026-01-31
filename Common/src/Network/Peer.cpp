@@ -76,7 +76,7 @@ bool Peer::onDataAvailable() {
             if (currentPacketSizeExpected == 0) {
                 // Then fetch current packet size
                 if (bytesInReadingBuffer < sizeof(currentPacketSizeExpected))
-                    break;
+                    return true;
 
                 std::memcpy(&currentPacketSizeExpected, rBuffer.data() + currentReadingOffset,
                             sizeof(currentPacketSizeExpected));
