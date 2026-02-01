@@ -9,10 +9,6 @@
 #include "Services/PacketsDispatchService_/ServerPacketContext.h"
 #include "Services/ServiceProvider.h"
 
-namespace Services {
-class ServerService;
-}
-
 namespace Network::Server {
 class ClientConnection {
     private:
