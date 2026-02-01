@@ -23,19 +23,23 @@ void Peer::trySyncEpollInterests() const {
     }
 }
 
-void Peer::scheduleBufferSend(std::span<const std::byte> buffer) const {
+void Peer::schedulePacketSend(const flatbuffers::FlatBufferBuilder& builder) const {
+    const std::byte* builderBuffPtr = reinterpret_cast<std::byte*>(builder.GetBufferPointer());
+    const auto builderBuffSize = builder.GetSize();
+
     std::vector<std::byte> buffTmp;
-    buffTmp.reserve(buffer.size() + sizeof(PacketView::PACKET_SIZE_TYPE));
+    buffTmp.reserve(builderBuffSize + sizeof(PacketView::PACKET_SIZE_TYPE));
 
     // Packet size
     {
-        PacketView::PACKET_SIZE_TYPE bufferSize = buffer.size();
+        PacketView::PACKET_SIZE_TYPE bufferSize = builderBuffSize;
         auto p = reinterpret_cast<std::byte*>(&bufferSize);
 
         buffTmp.insert(buffTmp.begin(), p, p + sizeof(bufferSize));
     }
 
-    buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), buffer.begin(), buffer.end());
+    buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), builderBuffPtr,
+                   builderBuffPtr + builderBuffSize);
 
     transport->scheduleBufferSend(std::move(buffTmp));
 

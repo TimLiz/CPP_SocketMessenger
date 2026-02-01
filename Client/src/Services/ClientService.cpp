@@ -78,6 +78,6 @@ void ClientService::run() {
 }
 void ClientService::stop() { isRunning = false; }
 
-void ClientService::scheduleDataSend(const std::span<const std::byte> buffer) const {
-    networkPeer->scheduleBufferSend(buffer);
+void ClientService::schedulePacketSend(const flatbuffers::FlatBufferBuilder& builder) const {
+    networkPeer->schedulePacketSend(builder);
 }

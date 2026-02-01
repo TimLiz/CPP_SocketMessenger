@@ -28,7 +28,7 @@ int main() {
         Network::Packets::CreateBase(fb_builder, Network::Packets::Packets_ClientHello, clientHelloPacket.Union());
     fb_builder.Finish(basePacket);
 
-    clientService.scheduleDataSend({reinterpret_cast<std::byte*>(fb_builder.GetBufferPointer()), fb_builder.GetSize()});
+    clientService.schedulePacketSend(fb_builder);
 
     fb_builder.Clear();
 

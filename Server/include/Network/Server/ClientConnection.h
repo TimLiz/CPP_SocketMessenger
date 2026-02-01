@@ -30,7 +30,9 @@ class ClientConnection {
 
         ClientConnection(Services::ServiceProvider& service_provider, std::unique_ptr<Socket> clientSocket);
 
-        void scheduleBufferSend(std::span<std::byte> buffer) { return networkPeer->scheduleBufferSend(buffer); };
+        void schedulePacketSend(const flatbuffers::FlatBufferBuilder& builder) const {
+            return networkPeer->schedulePacketSend(builder);
+        };
 
         bool onDataAvailable() { return networkPeer->onDataAvailable(); };
 

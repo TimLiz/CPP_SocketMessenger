@@ -43,7 +43,7 @@ class Peer {
 
         virtual ~Peer();
 
-        void scheduleBufferSend(std::span<const std::byte> buffer) const;
+        void schedulePacketSend(const flatbuffers::FlatBufferBuilder& builder) const;
 
         int getFd() const noexcept {
             if (transport == nullptr) {

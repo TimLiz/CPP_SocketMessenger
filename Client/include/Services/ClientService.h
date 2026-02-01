@@ -34,7 +34,7 @@ class ClientService : public ServiceBase {
 
         void stop();
 
-        void scheduleDataSend(std::span<const std::byte> buffer) const;
+        void schedulePacketSend(const flatbuffers::FlatBufferBuilder& builder) const;
 };
 } // namespace Services
 #endif
