@@ -11,6 +11,7 @@ set(FLATBUFFERS_GENERATED_DIR ${GENERATED_DIR}/fbs)
 find_package(Boost CONFIG REQUIRED core)
 find_package(spdlog CONFIG REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
+find_package(OpenSSL CONFIG REQUIRED)
 
 # FlatBuffer generation
 file(
@@ -54,6 +55,8 @@ add_library(Common STATIC
         include/Network/Transport/ITransport.h
         src/Network/Transport/BasicTransport.cpp
         include/Network/Transport/BasicTransport.h
+        include/Network/Transport/SecureTransport.cpp
+        include/Network/Transport/SecureTransport.h
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)
