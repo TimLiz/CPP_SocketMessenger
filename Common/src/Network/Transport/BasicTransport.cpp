@@ -80,6 +80,9 @@ void BasicTransport::onDataSendingAvailable() {
     }
 }
 
+// Let readers call read() right now, so we can avoid a copy/move
+inline bool BasicTransport::onDataReadAvailable() { return true; }
+
 int BasicTransport::read(const std::span<std::byte> readBuffer) { return socket->recv(readBuffer); }
 
 int BasicTransport::disconnect() {

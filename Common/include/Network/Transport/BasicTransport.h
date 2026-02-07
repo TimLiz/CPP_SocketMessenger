@@ -33,6 +33,7 @@ class BasicTransport final : public ITransport {
         void scheduleBufferSend(std::vector<std::byte> buffer) override;
         void onDataSendingAvailable() override;
 
+        bool onDataReadAvailable() override;
         int read(std::span<std::byte> readBuffer) override;
 
         int disconnect() override;

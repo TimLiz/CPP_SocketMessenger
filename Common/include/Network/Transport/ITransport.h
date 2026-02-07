@@ -26,6 +26,12 @@ class ITransport {
 
         virtual void onDataSendingAvailable() = 0;
 
+        /**
+         * Should be called before each read() call.
+         * @return bool False() if transport if available for reading
+         */
+        virtual bool onDataReadAvailable() = 0;
+
         virtual void modifyEventInterests(__poll_t interests, bool isInterested) = 0;
 
         /**
