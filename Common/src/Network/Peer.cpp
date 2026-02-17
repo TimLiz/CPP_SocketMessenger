@@ -72,9 +72,7 @@ void Peer::enable() {
 }
 
 bool Peer::onDataAvailable() {
-    const bool isTransportReadAvailable = transport->onDataReadAvailable();
-
-    while (isTransportReadAvailable) {
+    while (transport->onDataReadAvailable()) {
         size_t bytesToRead = sizeof(rBuffer) - bytesInReadingBuffer;
         int bytesReceived = transport->read({rBuffer.data() + bytesInReadingBuffer, bytesToRead});
 
