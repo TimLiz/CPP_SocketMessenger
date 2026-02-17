@@ -13,7 +13,7 @@ class PacketView {
         bool verified = false;
 
     public:
-        using PACKET_SIZE_TYPE = unsigned int;
+        using PACKET_SIZE_TYPE = uint32_t;
 
         static constexpr PACKET_SIZE_TYPE MAXIMUM_PACKET_SIZE = 1'000'000;
 
