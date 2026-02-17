@@ -3,6 +3,8 @@
 #include "Network/PacketView.h"
 #include "Network/Peer.h"
 
+#include "arpa/inet.h"
+
 namespace Network {
 
 Peer::Peer(const std::shared_ptr<Epoll::Epoll>& epl, PacketHandlerCallable packetHandler)
@@ -32,10 +34,10 @@ void Peer::schedulePacketSend(const flatbuffers::FlatBufferBuilder& builder) con
 
     // Packet size
     {
-        PacketView::PACKET_SIZE_TYPE bufferSize = builderBuffSize;
-        auto p = reinterpret_cast<std::byte*>(&bufferSize);
+        PacketView::PACKET_SIZE_TYPE bufferSize_NetO = htonl(builderBuffSize);
+        auto p = reinterpret_cast<std::byte*>(&bufferSize_NetO);
 
-        buffTmp.insert(buffTmp.begin(), p, p + sizeof(bufferSize));
+        buffTmp.insert(buffTmp.begin(), p, p + sizeof(bufferSize_NetO));
     }
 
     buffTmp.insert(buffTmp.begin() + sizeof(PacketView::PACKET_SIZE_TYPE), builderBuffPtr,
@@ -102,6 +104,7 @@ bool Peer::onDataAvailable() {
 
                 std::memcpy(&currentPacketSizeExpected, rBuffer.data() + currentReadingOffset,
                             sizeof(currentPacketSizeExpected));
+                currentPacketSizeExpected = ntohl(currentPacketSizeExpected);
 
                 if (currentPacketSizeExpected > PacketView::MAXIMUM_PACKET_SIZE) {
                     SPDLOG_WARN("Remote peer( sockFd: {} ) announced packet with size {} "

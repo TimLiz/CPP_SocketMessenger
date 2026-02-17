@@ -3,6 +3,8 @@ project(myMessenger)
 
 set(CMAKE_CXX_STANDARD 23)
 
+option(ENABLE_SECURE_TRANSPORT "Enable secure transport" ON)
+
 add_subdirectory(Common)
 add_subdirectory(Server)
 add_subdirectory(Client)

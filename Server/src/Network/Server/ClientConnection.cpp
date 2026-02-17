@@ -1,5 +1,11 @@
 #include "Network/Server/ClientConnection.h"
 
+#ifdef ENABLE_SECURE_TRANSPORT
+#include "Network/Transport/SecureTransport.h"
+#else
+#include "Network/Transport/BasicTransport.h"
+#endif
+
 #include "Services/PacketsDispatchService.h"
 #include "Services/ServerService.h"
 
@@ -21,7 +27,11 @@ ClientConnection::ClientConnection(Services::ServiceProvider& service_provider, 
 
     networkPeer->setEpollData({.u32 = connectionId});
 
+#ifdef ENABLE_SECURE_TRANSPORT
+    auto transport = std::make_unique<SecureTransport>(std::move(clientSocket));
+#else
     auto transport = std::make_unique<BasicTransport>(std::move(clientSocket));
+#endif
     networkPeer->setTransport(std::move(transport));
 
     SPDLOG_DEBUG("Created new ClientConnection ( fd: {}, connId: {} )", networkPeer->getFd(), connectionId);

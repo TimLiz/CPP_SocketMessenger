@@ -4,6 +4,12 @@
 #include "Services/PacketsDispatchService.h"
 #include "spdlog/spdlog.h"
 
+#ifdef ENABLE_SECURE_TRANSPORT
+#include "Network/Transport/SecureTransport.h"
+#else
+#include "Network/Transport/BasicTransport.h"
+#endif
+
 using namespace Services;
 using namespace Network;
 
@@ -26,7 +32,12 @@ int ClientService::connect(const std::string_view host, const int port) {
 
     networkPeer->isConnected = true;
 
+#ifdef ENABLE_SECURE_TRANSPORT
+    auto basicTransport = std::make_unique<SecureTransport>(std::move(socket));
+#else
     auto basicTransport = std::make_unique<BasicTransport>(std::move(socket));
+#endif
+
     networkPeer->setTransport(std::move(basicTransport));
 
     return status;

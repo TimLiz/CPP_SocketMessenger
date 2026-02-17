@@ -11,7 +11,7 @@ set(FLATBUFFERS_GENERATED_DIR ${GENERATED_DIR}/fbs)
 find_package(Boost CONFIG REQUIRED core)
 find_package(spdlog CONFIG REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
-find_package(OpenSSL CONFIG REQUIRED)
+find_package(OpenSSL CONFIG REQUIRED Crypto)
 
 # FlatBuffer generation
 file(
@@ -55,7 +55,7 @@ add_library(Common STATIC
         include/Network/Transport/ITransport.h
         src/Network/Transport/BasicTransport.cpp
         include/Network/Transport/BasicTransport.h
-        include/Network/Transport/SecureTransport.cpp
+        src/Network/Transport/SecureTransport.cpp
         include/Network/Transport/SecureTransport.h
 )
 
@@ -65,9 +65,16 @@ target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIR
 target_link_libraries(Common PUBLIC Boost::core)
 target_link_libraries(Common PUBLIC spdlog::spdlog)
 target_link_libraries(Common PUBLIC flatbuffers::flatbuffers)
+target_link_libraries(Common PUBLIC OpenSSL::Crypto)
 
 target_compile_definitions(Common PUBLIC
         $<$<CONFIG:Debug>:IS_DEBUG=1>
         $<$<CONFIG:Debug>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG>
         $<$<NOT:$<CONFIG:Debug>>:SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO>
 )
+
+if (ENABLE_SECURE_TRANSPORT)
+    target_compile_definitions(Common PUBLIC ENABLE_SECURE_TRANSPORT=1)
+else ()
+    message(WARNING "Secure transport is disabled!")
+endif ()
