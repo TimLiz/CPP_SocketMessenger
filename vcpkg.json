@@ -5,7 +5,12 @@
   "dependencies": [
     "boost-core",
     "flatbuffers",
-    "openssl",
+    {
+      "name": "openssl",
+      "features": [
+        "tools"
+      ]
+    },
     "spdlog"
   ]
 }
