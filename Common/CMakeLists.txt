@@ -57,6 +57,8 @@ add_library(Common STATIC
         include/Network/Transport/BasicTransport.h
         src/Network/Transport/SecureTransport.cpp
         include/Network/Transport/SecureTransport.h
+        include/Network/Transport/SecureTransport/ST_CryptoContext.cpp
+        include/Network/Transport/SecureTransport/ST_CryptoContext.h
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)

@@ -1,6 +1,7 @@
 #include "Network/Transport/SecureTransport.h"
 
 #include "openssl/evp.h"
+#include "openssl/pem.h"
 
 #include "spdlog/spdlog.h"
 
@@ -9,9 +10,55 @@
 #include "arpa/inet.h"
 
 namespace Network {
+void SecureTransport::CryptoSettings::loadPrivKeyFromFile(std::string_view filename) {
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> keypair = {nullptr, EVP_PKEY_free};
 
-SecureTransport::SecureTransport(std::unique_ptr<Socket> socket) : socket(std::move(socket)) {
+    {
+        std::unique_ptr<FILE, decltype(&std::fclose)> pf(std::fopen("PEM/privateKey.pem", "rb"), std::fclose);
+        if (!pf) {
+            SPDLOG_CRITICAL("Failed to open private key file, err: {}", strerror(errno));
+            SPDLOG_WARN("Make sure PEM/privateKey.pem exists");
+            throw std::system_error(errno, std::system_category(), "SecureTransport::SecureTransport: failed to open private key file");
+        }
+
+        EVP_PKEY* key = PEM_read_PrivateKey(pf.get(), nullptr, nullptr, nullptr);
+        if (!key) {
+            SPDLOG_CRITICAL("Failed read private key from file");
+            throw std::runtime_error("Failed to read private key from file");
+        }
+
+        keypair.reset(key);
+    }
+
+    kPair.reset(EVP_PKEY_new());
+}
+
+SecureTransport::SecureTransport(std::unique_ptr<Socket> socket, CryptoSettings settings) : socket(std::move(socket)), cryptoSettings(std::move(settings)) {
     isTunnelSecured = true;
+
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> keypair = {nullptr, EVP_PKEY_free};
+
+    {
+        std::unique_ptr<FILE, decltype(&std::fclose)> pf(std::fopen("PEM/privateKey.pem", "rb"), std::fclose);
+        if (!pf) {
+            SPDLOG_CRITICAL("Failed to open private key file, err: {}", strerror(errno));
+            SPDLOG_WARN("Make sure PEM/privateKey.pem exists");
+            throw std::system_error(errno, std::system_category(), "SecureTransport::SecureTransport: failed to open private key file");
+        }
+
+        EVP_PKEY* key = PEM_read_PrivateKey(pf.get(), nullptr, nullptr, nullptr);
+        if (!key) {
+            SPDLOG_CRITICAL("Failed read private key from file");
+            throw std::runtime_error("Failed to read private key from file");
+        }
+
+        keypair.reset(key);
+    }
+
+
+
+
+
     SPDLOG_CRITICAL("TODO: Implement tunnel securing");
 }
 

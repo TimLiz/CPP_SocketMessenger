@@ -1,0 +1,5 @@
+namespace Network.Packets;
+
+struct SecureTransportHello {
+    pub_key:[byte:256];
+}

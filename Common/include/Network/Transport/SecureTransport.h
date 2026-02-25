@@ -9,12 +9,25 @@
 
 #include "linux/types.h"
 
+#include "openssl/evp.h"
+
 #include "Epoll.h"
 #include "Network/Socket.h"
 
 namespace Network {
 
 class SecureTransport final : public ITransport {
+    public:
+        struct CryptoSettings {
+            private:
+                std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> kPair;
+                EVP_CIPHER* cipher;
+            public:
+                void loadPrivKeyFromFile(std::string_view filename);
+                CryptoSettings(CryptoSettings&& oth): kPair(std::move(oth.kPair)), cipher(oth.cipher) {}
+                CryptoSettings(EVP_CIPHER* cipher): kPair(nullptr, EVP_PKEY_free), cipher(cipher) {}
+        };
+
     private:
         typedef uint32_t MessageSize_t;
         typedef uint8_t HEADER_FLAGS_T;
@@ -97,6 +110,8 @@ class SecureTransport final : public ITransport {
         std::vector<std::byte> messageBuffer; // Stores all chunks of current message
         std::list<std::vector<std::byte>> plainTextForReading;
 
+        CryptoSettings cryptoSettings;
+
         void scheduleBufferSendInternal(std::vector<std::byte> buffer, bool isSecure);
         void encryptAndScheduleBufferSend(std::vector<std::byte> buffer);
 
@@ -108,7 +123,7 @@ class SecureTransport final : public ITransport {
     public:
         bool isConnected = true;
 
-        SecureTransport(std::unique_ptr<Socket> socket);
+        SecureTransport(std::unique_ptr<Socket> socket, CryptoSettings settings);
 
         inline bool tryGetEpollInterests(__poll_t& dest) noexcept override;
 
