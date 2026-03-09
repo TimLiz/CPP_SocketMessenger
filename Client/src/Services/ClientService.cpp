@@ -30,8 +30,6 @@ int ClientService::connect(const std::string_view host, const int port) {
 
     socket->setNonBlocking();
 
-    networkPeer->isConnected = true;
-
 #ifdef ENABLE_SECURE_TRANSPORT
     auto basicTransport = std::make_unique<SecureTransport>(std::move(socket));
 #else
@@ -39,6 +37,8 @@ int ClientService::connect(const std::string_view host, const int port) {
 #endif
 
     networkPeer->setTransport(std::move(basicTransport));
+
+    networkPeer->isConnected = true;
 
     return status;
 }
