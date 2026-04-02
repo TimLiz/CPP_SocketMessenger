@@ -57,8 +57,18 @@ add_library(Common STATIC
         include/Network/Transport/BasicTransport.h
         src/Network/Transport/SecureTransport.cpp
         include/Network/Transport/SecureTransport.h
-        include/Network/Transport/SecureTransport/ST_CryptoContext.cpp
-        include/Network/Transport/SecureTransport/ST_CryptoContext.h
+        include/Helpers/RAII.h
+        include/Helpers/Callback.h
+        include/Crypto/Asymmetric/AsymmetricEncryptionCtx.cpp
+        include/Crypto/Asymmetric/AsymmetricEncryptionCtx.h
+        include/Helpers/OpensslRAII.h
+        include/Helpers/FileRAII.h
+        include/Crypto/TwoKeysEncryptionCtx.cpp
+        include/Crypto/TwoKeysEncryptionCtx.h
+        include/Crypto/BIO_SOCK_WRAP.cpp
+        include/Crypto/BIO_SOCK_WRAP.h
+        include/Crypto/BIOTransport.cpp
+        include/Crypto/BIOTransport.h
 )
 
 target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${GENERATED_DIR} include)
@@ -67,7 +77,7 @@ target_include_directories(Common PUBLIC ${LIBS_INCLUDE_DIR} ${Boost_INCLUDE_DIR
 target_link_libraries(Common PUBLIC Boost::core)
 target_link_libraries(Common PUBLIC spdlog::spdlog)
 target_link_libraries(Common PUBLIC flatbuffers::flatbuffers)
-target_link_libraries(Common PUBLIC OpenSSL::Crypto)
+target_link_libraries(Common PUBLIC OpenSSL::Crypto OpenSSL::SSL)
 
 target_compile_definitions(Common PUBLIC
         $<$<CONFIG:Debug>:IS_DEBUG=1>

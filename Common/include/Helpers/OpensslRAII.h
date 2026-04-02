@@ -1,0 +1,16 @@
+#ifndef MYMESSENGER_OPENSSLRAII_H
+#define MYMESSENGER_OPENSSLRAII_H
+#include "RAII.h"
+
+#include "openssl/bio.h"
+#include "openssl/evp.h"
+#include "openssl/ssl.h"
+
+namespace RAII {
+RAII_GEN_RESOURCE_WRAPPER(wEVP_PKEY, EVP_PKEY, EVP_PKEY_free);
+RAII_GEN_RESOURCE_WRAPPER(wEVP_PKEY_CTX, EVP_PKEY_CTX, EVP_PKEY_CTX_free);
+RAII_GEN_RESOURCE_WRAPPER(wBIO_METHOD, BIO_METHOD, BIO_meth_free);
+RAII_GEN_RESOURCE_WRAPPER(wSSL_CTX, SSL_CTX, SSL_CTX_free);
+RAII_GEN_RESOURCE_WRAPPER(wSSL, SSL, SSL_free);
+} // namespace RAII
+#endif

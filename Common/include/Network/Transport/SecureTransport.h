@@ -5,30 +5,25 @@
 
 #include "list"
 #include "memory"
+#include "mutex"
 #include "vector"
 
 #include "linux/types.h"
-
 #include "openssl/evp.h"
+#include "spdlog/spdlog.h"
 
 #include "Epoll.h"
 #include "Network/Socket.h"
 
+#include "Helpers/OpensslRAII.h"
+
 namespace Network {
 
 class SecureTransport final : public ITransport {
-    public:
-        struct CryptoSettings {
-            private:
-                std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> kPair;
-                EVP_CIPHER* cipher;
-            public:
-                void loadPrivKeyFromFile(std::string_view filename);
-                CryptoSettings(CryptoSettings&& oth): kPair(std::move(oth.kPair)), cipher(oth.cipher) {}
-                CryptoSettings(EVP_CIPHER* cipher): kPair(nullptr, EVP_PKEY_free), cipher(cipher) {}
-        };
-
     private:
+        enum TLSState { NO_STATE = 0, HANDSHAKE_STATE = 1, CONNECTED_STATE = 2, CLOSED_STATE = 3, ERROR_STATE = 4 };
+        TLSState tlsState = NO_STATE;
+
         typedef uint32_t MessageSize_t;
         typedef uint8_t HEADER_FLAGS_T;
 
@@ -99,6 +94,7 @@ class SecureTransport final : public ITransport {
         bool didEpollInterestsChanged = false;
 
         bool isTunnelSecured = false;
+        bool amIServer;
 
         // All scheduled data sends will be put into delayedBuffers until tunnel is secured
         // delayedBuffers won't be sent to the Socket until tunnel gets secured
@@ -110,20 +106,25 @@ class SecureTransport final : public ITransport {
         std::vector<std::byte> messageBuffer; // Stores all chunks of current message
         std::list<std::vector<std::byte>> plainTextForReading;
 
-        CryptoSettings cryptoSettings;
-
         void scheduleBufferSendInternal(std::vector<std::byte> buffer, bool isSecure);
         void encryptAndScheduleBufferSend(std::vector<std::byte> buffer);
+
+        RAII::wSSL ssl_object = {nullptr};
+
+        std::optional<const std::string_view> handleTLSError(int retV);
+        TLSState handleTLSHandshake();
 
         int cipherBlockSize = -1;
         unsigned int getCipherBlockSize();
         MessageSize_t getMessageBodyPaddingSize(bool isSecure);
         MessageSize_t getMaximumMessageBodySize(bool isSecure);
 
+        void setEpollInterests(__poll_t interests);
+
     public:
         bool isConnected = true;
 
-        SecureTransport(std::unique_ptr<Socket> socket, CryptoSettings settings);
+        SecureTransport(std::unique_ptr<Socket> argSock, bool amIServer);
 
         inline bool tryGetEpollInterests(__poll_t& dest) noexcept override;
 

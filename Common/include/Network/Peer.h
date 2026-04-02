@@ -37,7 +37,7 @@ class Peer {
         void trySyncEpollInterests() const;
 
     public:
-        bool isConnected = true;
+        bool isConnected = false;
 
         Peer(const std::shared_ptr<Epoll::Epoll>& epl, PacketHandlerCallable packetHandler);
 

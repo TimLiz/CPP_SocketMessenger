@@ -28,7 +28,7 @@ ClientConnection::ClientConnection(Services::ServiceProvider& service_provider, 
     networkPeer->setEpollData({.u32 = connectionId});
 
 #ifdef ENABLE_SECURE_TRANSPORT
-    auto transport = std::make_unique<SecureTransport>(std::move(clientSocket));
+    auto transport = std::make_unique<SecureTransport>(std::move(clientSocket), true);
 #else
     auto transport = std::make_unique<BasicTransport>(std::move(clientSocket));
 #endif

@@ -8,3 +8,5 @@ option(ENABLE_SECURE_TRANSPORT "Enable secure transport" ON)
 add_subdirectory(Common)
 add_subdirectory(Server)
 add_subdirectory(Client)
+
+target_link_libraries(Common PUBLIC -fsanitize=address)

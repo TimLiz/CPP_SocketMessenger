@@ -6,21 +6,21 @@ find_program(
         REQUIRED
 )
 
-set(SECTRANS_RSA_PATH "${CMAKE_BINARY_DIR}/RSA")
+set(SECTRANS_TLS_PATH "${CMAKE_BINARY_DIR}/TLS")
 
-set(SECTRANS_PRIVKEY "${SECTRANS_RSA_PATH}/privateKey.pem")
-set(SECTRANS_PUBKEY "${SECTRANS_RSA_PATH}/publicKey.pem")
+set(SECTRANS_PRIVKEY "${SECTRANS_TLS_PATH}/privateKey.pem")
+set(SECTRANS_CHAIN "${SECTRANS_TLS_PATH}/chain.pem")
 
 add_custom_command(
-        OUTPUT ${SECTRANS_PRIVKEY}
+        OUTPUT ${SECTRANS_PRIVKEY} ${SECTRANS_CHAIN}
         MAIN_DEPENDENCY ${OpenSSL_bin}
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${SECTRANS_RSA_PATH}"
-        COMMAND "${OpenSSL_bin}" genrsa -out "${SECTRANS_PRIVKEY}" 2048
-        COMMAND "${OpenSSL_bin}" rsa -in "${SECTRANS_PRIVKEY}" -pubout -out "${SECTRANS_PUBKEY}"
-        COMMENT "Generating server RSA keys"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${SECTRANS_TLS_PATH}"
+        COMMAND "${OpenSSL_bin}" genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "${SECTRANS_PRIVKEY}"
+        COMMAND "${OpenSSL_bin}" req -new -x509 -key "${SECTRANS_PRIVKEY}" -out "${SECTRANS_CHAIN}" -days 9999
+        COMMENT "Generating TLS chain"
         VERBATIM
 )
 
 add_custom_target(sectrans_certs ALL
-        DEPENDS "${SECTRANS_PRIVKEY}" "${SECTRANS_PUBKEY}"
+        DEPENDS "${SECTRANS_PRIVKEY}" "${SECTRANS_CHAIN}"
 )

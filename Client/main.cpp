@@ -6,7 +6,10 @@
 #include "fbs/ClientHello_generated.h"
 #include "spdlog/spdlog.h"
 
+#include "Helpers/RAII.h"
 #include "Services/PacketsDispatchService.h"
+
+int e = 1;
 
 int main() {
     spdlog::set_level(static_cast<spdlog::level::level_enum>(SPDLOG_ACTIVE_LEVEL)); // Is being set by CMAKE

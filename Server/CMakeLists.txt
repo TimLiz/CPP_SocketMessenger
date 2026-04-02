@@ -15,13 +15,13 @@ if (ENABLE_SECURE_TRANSPORT)
     add_dependencies(Server sectrans_certs)
 
     add_custom_command(TARGET Server POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:Server>/RSA"
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:Server>/TLS"
             COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "${SECTRANS_PRIVKEY}"
-            "$<TARGET_FILE_DIR:Server>/RSA"
+            "$<TARGET_FILE_DIR:Server>/TLS"
             COMMENT "Copying server private key into server output folder"
     )
-endif()
+endif ()
 
 target_include_directories(Server PRIVATE include)
 target_link_libraries(Server PRIVATE Common)

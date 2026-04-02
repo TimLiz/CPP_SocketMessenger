@@ -31,7 +31,7 @@ int ClientService::connect(const std::string_view host, const int port) {
     socket->setNonBlocking();
 
 #ifdef ENABLE_SECURE_TRANSPORT
-    auto basicTransport = std::make_unique<SecureTransport>(std::move(socket));
+    auto basicTransport = std::make_unique<SecureTransport>(std::move(socket), false);
 #else
     auto basicTransport = std::make_unique<BasicTransport>(std::move(socket));
 #endif
